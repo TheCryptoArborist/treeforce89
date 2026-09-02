@@ -21,7 +21,7 @@ export const weaponLevels=[
 export const tuning={chainMs:2500,pruneInvuln:600,damageInvuln:1250,pruneChargeMax:100,weaponCorePity:12,turboPity:16,turboMs:7000,turboMoveMultiplier:1.22,turboFireMultiplier:.8,holdFireMs:420,autoFireMs:460,enemyProjectiles:{dartSpeed:168,drillSpeed:182,sporeSpeed:108,sporeWobble:28}};
 export const enemyConfig={bat:{hp:1,score:100,growth:2,pruneCharge:10},borer:{hp:2,score:250,growth:5,pruneCharge:18},spore:{hp:1,score:200,growth:4,pruneCharge:15},small:{hp:1,score:50,growth:1,pruneCharge:5}} as const;
 export const waves=[
- {name:"FORMATION TRAINING",spawns:[...Array(16)].map((_,i)=>({type:"bat",delay:1100+Math.floor(i/4)*1700+(i%4)*250,pattern:i%4<2?"leftArc":"rightArc"}))},
+ {name:"FORMATION TRAINING",spawns:[...Array(12)].map((_,i)=>({type:"bat",delay:1800+Math.floor(i/4)*2100+(i%4)*330,pattern:i%4<2?"leftArc":"rightArc"}))},
  {name:"COORDINATED ASSAULT",spawns:[...Array(28)].map((_,i)=>({type:"bat",delay:450+Math.floor(i/4)*820+(i%4)*115,pattern:["leftArc","rightArc","cross","sweep"][i%4]}))},
  {name:"ROOT SNARE",spawns:[...Array(32)].map((_,i)=>({type:i%9===0?"borer":i%7===0?"spore":"bat",delay:380+Math.floor(i/4)*720+(i%4)*100,pattern:["sweep","rightArc","leftArc","cross"][i%4]}))},
  {name:"CANOPY RUSH",spawns:[...Array(40)].map((_,i)=>({type:"bat",delay:260+Math.floor(i/5)*590+(i%5)*80,pattern:["leftArc","cross","rightArc","sweep","cross"][i%5]}))},
