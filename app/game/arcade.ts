@@ -18,16 +18,19 @@ class BootScene extends Phaser.Scene{constructor(){super("boot")}preload(){this.
 class TitleScene extends Phaser.Scene{
  constructor(){super("title")}
  create(){
-  forest(this);this.add.rectangle(240,360,480,720,ph.bg,.28);
-  // The legacy hero photo is an opaque black source image, which renders as a
-  // distracting rectangle on the title screen. Keep the title readable over
-  // the forest rather than displaying that asset here.
-  this.add.text(240,75,"TREE FORCE ’89",font(38,pc.green)).setOrigin(.5).setShadow(4,4,pc.cyan,4);
-  this.add.text(240,117,"CANOPY COMMAND",font(19,pc.gold)).setOrigin(.5);
-  this.add.text(240,153,"GROW. SHIELD. DEFEND THE CANOPY.",font(10,pc.muted)).setOrigin(.5);
-  this.add.text(240,650,this.sys.game.device.input.touch?"TAP TO PLANT":"PRESS SPACE TO PLANT",font(15,pc.text)).setOrigin(.5).setDepth(5);
-  this.add.text(240,685,"© 1989 TREE FORCE LABS",font(8,"#5c7b8b")).setOrigin(.5);
-  const begin=()=>{startMusic();this.scene.start("game")};this.input.once("pointerdown",begin);this.input.keyboard?.once("keydown-SPACE",begin);
+  forest(this);this.add.rectangle(240,360,480,720,ph.bg,.54);this.add.rectangle(240,360,412,626,ph.bg,.68).setStrokeStyle(2,ph.green,.75);this.add.rectangle(240,41,408,34,ph.panel,.92).setStrokeStyle(1,ph.gold,.72);
+  this.add.text(240,41,"TREE ARCADE PRESENTS",font(10,pc.gold)).setOrigin(.5).setLetterSpacing(2);
+  this.add.text(240,96,"TREE FORCE ’89",font(34,pc.green)).setOrigin(.5).setShadow(4,4,pc.cyan,4);
+  this.add.text(240,137,"CANOPY COMMAND",font(18,pc.gold)).setOrigin(.5).setLetterSpacing(2);
+  this.add.text(240,169,"GROW. SHIELD. DEFEND THE CANOPY.",font(10,pc.text)).setOrigin(.5);
+  this.add.line(240,190,44,0,436,0,ph.green,.7).setLineWidth(1);
+  [78,154,326,402].forEach((x,i)=>{const bat=this.add.sprite(x,252+(i%2)*20,"bat").setScale(1.15).setDepth(4);this.tweens.add({targets:bat,y:bat.y+(i%2?10:-10),angle:i%2?7:-7,duration:680+i*90,yoyo:true,repeat:-1,ease:"Sine.inOut"})});
+  const hero=this.add.sprite(240,408,"playerSheet",0).setScale(1.72).setDepth(5);this.tweens.add({targets:hero,y:400,scaleX:1.78,scaleY:1.78,duration:760,yoyo:true,repeat:-1,ease:"Sine.inOut"});
+  const wing=this.add.text(240,510,"ARBORWING READY",font(11,pc.green)).setOrigin(.5);this.tweens.add({targets:wing,alpha:.42,duration:620,yoyo:true,repeat:-1});
+  this.add.rectangle(240,552,360,48,ph.panel,.9).setStrokeStyle(1,ph.gold,.8);this.add.text(240,541,"3 LIVES  //  10 WAVES  //  FINAL BOSS",font(10,pc.text)).setOrigin(.5);this.add.text(240,561,"CLEAR THE CANOPY. DEFEND THE GROVE.",font(9,pc.muted)).setOrigin(.5);
+  const start=this.add.text(240,622,this.sys.game.device.input.touch?"TAP TO START":"PRESS START  •  SPACE / ENTER",font(15,pc.gold)).setOrigin(.5).setDepth(6);this.tweens.add({targets:start,alpha:.28,duration:500,yoyo:true,repeat:-1});
+  this.add.text(240,666,"© 1989 TREE FORCE LABS  •  1 PLAYER",font(8,"#5c7b8b")).setOrigin(.5);
+  let starting=false;const begin=()=>{if(starting)return;starting=true;startMusic();this.scene.start("game")};this.input.once("pointerdown",begin);this.input.keyboard?.once("keydown-SPACE",begin);this.input.keyboard?.once("keydown-ENTER",begin);this.time.addEvent({delay:120,loop:true,callback:()=>{const pad=typeof navigator!=="undefined"?Array.from(navigator.getGamepads?.()||[]).find((p):p is Gamepad=>!!p):undefined;if(pad&&(pad.buttons[9]?.pressed||pad.buttons[0]?.pressed))begin()}});
  }
 }
 
