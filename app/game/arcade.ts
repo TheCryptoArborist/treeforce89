@@ -11,6 +11,17 @@ function startMusic(){if(sfxMuted||musicTimer!==undefined)return;try{const c=ens
 function stopMusic(){if(musicTimer!==undefined){window.clearInterval(musicTimer);musicTimer=undefined}}
 type Kind="bat"|"borer"|"spore"|"small"|"boss";
 const waveFamilies=["nightwing","emberWasp","thornBeetle","duskMoth","blightSpore","barkDriller","stormShrike","riptailRaptor","rootguardSentinel"] as const;
+const waveFamilyMixes=[
+ ["nightwing","emberWasp"],
+ ["emberWasp","nightwing","duskMoth"],
+ ["thornBeetle","nightwing","blightSpore"],
+ ["duskMoth","emberWasp","thornBeetle"],
+ ["blightSpore","duskMoth","barkDriller"],
+ ["barkDriller","thornBeetle","stormShrike"],
+ ["stormShrike","blightSpore","riptailRaptor"],
+ ["riptailRaptor","stormShrike","rootguardSentinel"],
+ ["rootguardSentinel","riptailRaptor","barkDriller"],
+] as const;
 interface Enemy extends Phaser.Physics.Arcade.Sprite{kind:Kind;hp:number;homeX:number;homeY:number;phase:number;diving:boolean;settled:boolean;returning:boolean;formationIndex:number;lastFire:number}
 interface RunState{runId:string;seed:number;score:number;wave:number;kills:number;perfect:number;maxStage:number;shotsFired:number;shotsHit:number;start:number;mode:string}
 
@@ -114,7 +125,7 @@ class GameScene extends Phaser.Scene{
  spawn(kind:Kind,pattern="leftArc"){
   if(kind==="boss"){this.spawnCanopyTyrant();return}
   const cfg=enemyConfig[kind],i=this.waveSpawned,row=Math.floor(i/8),column=i%8;
-  const leader=!this.isCanopyRush()&&kind==="bat"&&row===0&&(column===3||(this.run.wave>=4&&column===4)),family=waveFamilies[Math.min(this.run.wave,waveFamilies.length-1)],baseScale=leader?.37:kind==="borer"?.34:.3,e=this.enemies.create(-35,-35,family) as Enemy;e.kind=kind;e.hp=leader?2:cfg.hp;e.homeX=54+column*53;e.homeY=112+row*42;e.phase=this.rng.range(0,Math.PI*2);e.diving=false;e.settled=false;e.returning=false;e.formationIndex=i;e.lastFire=0;e.setData("leader",leader).setData("family",family).setData("baseScale",baseScale).setData("formationRow",row).setData("mutateAt",this.run.wave>=2&&!leader&&kind==="bat"&&i%7===2?this.waveStart+this.rng.range(10500,14500):0).setData("motionDeadline",this.time.now+4800).setDepth(3).setScale(baseScale);if(this.isCanopyRush())this.rushTargets++;this.animateEnemy(e);this.flyEntry(e,pattern);
+  const leader=!this.isCanopyRush()&&kind==="bat"&&row===0&&(column===3||(this.run.wave>=4&&column===4)),mix=waveFamilyMixes[Math.min(this.run.wave,waveFamilyMixes.length-1)],family=leader?waveFamilies[Math.min(this.run.wave,waveFamilies.length-1)]:mix[(i+row)%mix.length],baseScale=leader?.37:kind==="borer"?.34:.3,e=this.enemies.create(-35,-35,family) as Enemy;e.kind=kind;e.hp=leader?2:cfg.hp;e.homeX=54+column*53;e.homeY=112+row*42;e.phase=this.rng.range(0,Math.PI*2);e.diving=false;e.settled=false;e.returning=false;e.formationIndex=i;e.lastFire=0;e.setData("leader",leader).setData("family",family).setData("baseScale",baseScale).setData("formationRow",row).setData("mutateAt",this.run.wave>=2&&!leader&&kind==="bat"&&i%7===2?this.waveStart+this.rng.range(10500,14500):0).setData("motionDeadline",this.time.now+4800).setDepth(3).setScale(baseScale);if(this.isCanopyRush())this.rushTargets++;this.animateEnemy(e);this.flyEntry(e,pattern);
  }
  spawnCanopyTyrant(){const e=this.enemies.create(240,-90,"canopyTyrantV2") as Enemy;e.kind="boss";e.hp=enemyConfig.boss.hp;e.homeX=240;e.homeY=138;e.phase=0;e.diving=false;e.settled=false;e.returning=false;e.formationIndex=-10;e.lastFire=0;e.setData("boss",true).setData("bossDamageStage",0).setData("formationRow",-1).setData("motionDeadline",this.time.now+3600).setDepth(4).setScale(.74);e.body!.setSize(96,82);this.bossDamageFx.forEach(mark=>mark.destroy());this.bossDamageFx=[];this.tweens.killTweensOf(this.lessonText);this.lessonText.setVisible(false).setText("");this.bossHpText.setText(`CANOPY TYRANT  ${e.hp} / ${enemyConfig.boss.hp}`).setVisible(true);this.bossHpFill.setSize(212,7).setVisible(true);(this.children.getByName("bossHpTrack") as Phaser.GameObjects.Rectangle|undefined)?.setVisible(true);this.banner("THE CANOPY TYRANT\nROOT CROWN ASCENDS",pc.danger);this.tweens.add({targets:e,scaleX:.79,scaleY:.69,duration:640,yoyo:true,repeat:-1,ease:"Sine.inOut"});this.tweens.add({targets:e,y:e.homeY,duration:2500,ease:"Sine.out",onComplete:()=>{if(e.active){e.settled=true;e.setData("motionDeadline",0)}}})}
  animateEnemy(e:Enemy){const family=e.getData("family") as string,base=e.getData("baseScale") as number,winged=["nightwing","emberWasp","duskMoth","stormShrike","riptailRaptor"].includes(family),slow=["thornBeetle","barkDriller","rootguardSentinel"].includes(family);this.tweens.add({targets:e,scaleX:base*(winged?1.13:1.045),scaleY:base*(winged?.84:1.08),duration:winged?170:slow?500:310,yoyo:true,repeat:-1,ease:"Sine.inOut"})}
@@ -159,10 +170,10 @@ class GameScene extends Phaser.Scene{
   // browsers.  Keep the stable forest composition and change each level's
   // lighting instead; this preserves the distinct level atmosphere without
   // putting gameplay behind an unreliable texture swap.
-  const moods:[number,number][]=[[0x000000,0],[0x6e2b18,.16],[0x20534b,.18],[0x482c70,.17],[0x456418,.18],[0x683e18,.18],[0x234d69,.2],[0x704a21,.18],[0x512940,.2],[0x8c341b,.22]];
+  const moods:[number,number][]=[[0x000000,0],[0x9a421c,.30],[0x1d6b66,.34],[0x603592,.31],[0x597b1e,.33],[0x8f551c,.34],[0x256e95,.35],[0x925922,.34],[0x71385d,.36],[0xaa3c1e,.40]];
   const [color,alpha]=moods[index]||moods[0];
   this.tweens.killTweensOf(this.backgroundMood);
-  this.backgroundMood.setFillStyle(color,0);
+  this.backgroundMood.setFillStyle(color,1).setAlpha(0);
   this.tweens.add({targets:this.backgroundMood,alpha,duration:420,ease:"Sine.inOut"});
  }
  updateWaves(time:number){const w=this.waveData();while(this.waveSpawned<w.spawns.length&&time-this.waveStart>=w.spawns[this.waveSpawned].delay){const s=w.spawns[this.waveSpawned];this.spawn(s.type as Kind,s.pattern);this.waveSpawned++}if(this.waveSpawned===w.spawns.length&&this.enemies.countActive()===0&&this.pickups.countActive()===0&&!this.waveClearing){this.clearTouchState();this.roundSequence()}}
