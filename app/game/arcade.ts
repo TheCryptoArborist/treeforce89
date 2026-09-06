@@ -167,7 +167,36 @@ class GameScene extends Phaser.Scene{
 }
 
 class GameOverScene extends Phaser.Scene{
- constructor(){super("gameover")}create(data:{run:RunState;cleared:boolean}){forest(this);const accuracy=Math.round(data.run.shotsHit/Math.max(1,data.run.shotsFired)*100);this.add.rectangle(240,360,480,720,ph.bg,.82);this.add.text(240,120,data.cleared?"CANOPY SECURED":"ROOTS HOLD.\nREGROUP, ARBORWING.",font(27,data.cleared?pc.green:pc.gold)).setOrigin(.5).setAlign("center");this.add.text(240,232,`SCORE           ${data.run.score.toLocaleString()}\nWAVE            ${data.run.wave+1}\nBLIGHT DOWN     ${data.run.kills}\nSHOTS / HITS    ${data.run.shotsFired} / ${data.run.shotsHit}\nACCURACY        ${accuracy}%\nPERFECT SHIELDS ${data.run.perfect}\nMAX GROWTH      ${stages[data.run.maxStage].name}`,font(13)).setOrigin(.5,0).setLineSpacing(10);const b=this.add.rectangle(240,518,220,54,ph.bgSoft).setStrokeStyle(3,ph.cyan).setInteractive();this.add.text(240,518,"PLAY AGAIN",font(16,pc.gold)).setOrigin(.5);b.on("pointerdown",()=>this.scene.start("game"));this.input.keyboard?.once("keydown-SPACE",()=>this.scene.start("game"));this.add.text(240,600,`RUN ${data.run.runId}\nSEED ${data.run.seed} · v${GAME_VERSION}`,font(8,pc.muted)).setOrigin(.5).setAlign("center")}}
+ constructor(){super("gameover")}
+ create(data:{run:RunState;cleared:boolean}){
+  forest(this);
+  const accuracy=Math.round(data.run.shotsHit/Math.max(1,data.run.shotsFired)*100);
+  const wave=waves[Math.min(data.run.wave,waves.length-1)]?.name||"UNKNOWN";
+  this.add.rectangle(240,360,480,720,ph.bg,.86);
+  this.add.rectangle(240,360,414,650,ph.bg,.7).setStrokeStyle(2,data.cleared?ph.green:ph.danger,.78);
+  this.add.text(240,31,"TREE FORCE ’89  //  MISSION REPORT",font(10,pc.gold)).setOrigin(.5).setLetterSpacing(1.4);
+  const hero=this.add.sprite(240,130,"playerSheet",Math.min(data.run.maxStage,4)).setScale(1.08).setAlpha(data.cleared ? .9 : .52);
+  if(!data.cleared){
+   hero.setTint(0xa85a7a).setAngle(-12);
+   const crack=this.add.circle(240,130,52,0xff6b62,.08).setStrokeStyle(2,ph.danger,.72);
+   this.tweens.add({targets:crack,scale:1.45,alpha:0,duration:900,repeat:-1});
+  }
+  this.add.text(240,213,data.cleared?"CANOPY SECURED":"CANOPY BREACH",font(27,data.cleared?pc.green:pc.danger)).setOrigin(.5).setShadow(3,3,ph.bg,4);
+  this.add.text(240,251,data.cleared?"THE TYRANT HAS BEEN ROOTED OUT.":"ROOTS HOLD. REGROUP, ARBORWING.",font(10,data.cleared?pc.gold:pc.text)).setOrigin(.5);
+  this.add.rectangle(240,376,360,188,ph.panel,.94).setStrokeStyle(1,ph.gold,.85);
+  this.add.text(240,289,"CANOPY DEBRIEF",font(11,pc.gold)).setOrigin(.5);
+  this.add.text(240,312,`SCORE              ${data.run.score.toLocaleString()}\nLAST SECTOR        ${String(data.run.wave+1).padStart(2,"0")}  ${wave}\nBLIGHT CLEARED     ${data.run.kills}\nSHOTS / HITS       ${data.run.shotsFired} / ${data.run.shotsHit}\nACCURACY           ${accuracy}%\nPERFECT SHIELDS    ${data.run.perfect}\nMAX GROWTH         ${stages[data.run.maxStage].name}`,font(11,pc.text)).setOrigin(.5,0).setAlign("left").setLineSpacing(5);
+  const replay=this.add.rectangle(240,503,266,48,ph.bgSoft).setStrokeStyle(3,ph.green).setInteractive();
+  const title=this.add.rectangle(240,563,266,40,ph.panel).setStrokeStyle(2,ph.cyan).setInteractive();
+  this.add.text(240,503,data.cleared?"RUN THE CANOPY AGAIN":"REDEPLOY ARBORWING",font(13,pc.gold)).setOrigin(.5);
+  this.add.text(240,563,"RETURN TO TITLE",font(10,pc.text)).setOrigin(.5);
+  replay.on("pointerdown",()=>this.scene.start("game"));
+  title.on("pointerdown",()=>this.scene.start("title"));
+  this.input.keyboard?.once("keydown-SPACE",()=>this.scene.start("game"));
+  this.input.keyboard?.once("keydown-ENTER",()=>this.scene.start("game"));
+  this.add.text(240,644,`RUN ${data.run.runId}  •  SEED ${data.run.seed}  •  v${GAME_VERSION}`,font(8,pc.muted)).setOrigin(.5).setAlign("center");
+ }
+}
 
 function makeTextures(s:Phaser.Scene){
  const g=s.make.graphics({x:0,y:0},false);const tex=(key:string,w:number,h:number,draw:()=>void)=>{g.clear();draw();g.generateTexture(key,w,h)};
