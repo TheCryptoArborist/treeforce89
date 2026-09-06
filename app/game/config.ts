@@ -19,7 +19,7 @@ export const weaponLevels=[
  {name:"CANOPY CANNON",projectile:"canopyBolt",shots:2,fireMs:335,speed:560,damage:2,pierce:0,activeCap:4},
 ] as const;
 export const tuning={chainMs:2500,pruneInvuln:600,damageInvuln:1250,pruneChargeMax:100,weaponCorePity:12,turboPity:16,turboMs:7000,turboMoveMultiplier:1.22,turboFireMultiplier:.8,holdFireMs:420,autoFireMs:460,enemyProjectiles:{dartSpeed:168,drillSpeed:182,sporeSpeed:108,sporeWobble:28}};
-export const enemyConfig={bat:{hp:1,score:100,growth:2,pruneCharge:10},borer:{hp:2,score:250,growth:5,pruneCharge:18},spore:{hp:1,score:200,growth:4,pruneCharge:15},small:{hp:1,score:50,growth:1,pruneCharge:5},boss:{hp:36,score:10000,growth:10,pruneCharge:25}} as const;
+export const enemyConfig={bat:{hp:1,score:100,growth:2,pruneCharge:10},borer:{hp:2,score:250,growth:5,pruneCharge:18},spore:{hp:1,score:200,growth:4,pruneCharge:15},small:{hp:1,score:50,growth:1,pruneCharge:5},boss:{hp:24,score:10000,growth:10,pruneCharge:25}} as const;
 export const waves=[
  // Campaign I — the opener teaches movement and firing before the canopy turns hostile.
  {name:"FORMATION TRAINING",spawns:[...Array(8)].map((_,i)=>({type:"bat",delay:2200+Math.floor(i/4)*3100+(i%4)*520,pattern:i%4<2?"leftArc":"rightArc"}))},
