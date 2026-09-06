@@ -8,9 +8,10 @@
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run test:campaign && vite build",
     "preview": "vite preview",
     "test": "npm run build",
+    "test:campaign": "node --test tests/campaign-polish.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
   },
