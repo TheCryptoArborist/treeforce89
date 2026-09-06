@@ -26,7 +26,7 @@ export const waves=[
  {name:"VINEFIRE VOLLEY",spawns:[...Array(20)].map((_,i)=>({type:"bat",delay:600+Math.floor(i/4)*1120+(i%4)*180,pattern:["leftArc","rightArc","cross","sweep"][i%4]}))},
  {name:"ROOTSNARE AMBUSH",spawns:[...Array(24)].map((_,i)=>({type:i%8===0?"borer":i%6===0?"spore":"bat",delay:520+Math.floor(i/4)*900+(i%4)*145,pattern:["sweep","rightArc","leftArc","cross"][i%4]}))},
  {name:"TWILIGHT TALON RAID",spawns:[...Array(30)].map((_,i)=>({type:"bat",delay:360+Math.floor(i/5)*660+(i%5)*100,pattern:["leftArc","cross","rightArc","sweep","cross"][i%5]}))},
- {name:"BLIGHTWING SWARM",spawns:[...Array(32)].map((_,i)=>({type:i%6===0?"spore":"bat",delay:420+Math.floor(i/4)*760+(i%4)*125,pattern:["cross","sweep","leftArc","rightArc"][i%4]}))},
+ {name:"SHADOW WING SWARM",spawns:[...Array(32)].map((_,i)=>({type:i%6===0?"spore":"bat",delay:420+Math.floor(i/4)*760+(i%4)*125,pattern:["cross","sweep","leftArc","rightArc"][i%4]}))},
  {name:"BORER BREACH",spawns:[...Array(34)].map((_,i)=>({type:i%5===0?"borer":i%7===0?"spore":"bat",delay:360+Math.floor(i/4)*720+(i%4)*110,pattern:["sweep","rightArc","cross","leftArc"][i%4]}))},
  {name:"THUNDERCANOPY",spawns:[...Array(36)].map((_,i)=>({type:i%8===0?"borer":i%5===0?"spore":"bat",delay:300+Math.floor(i/5)*650+(i%5)*92,pattern:["cross","leftArc","sweep","rightArc","cross"][i%5]}))},
  {name:"WILDFLIGHT RUSH",spawns:[...Array(40)].map((_,i)=>({type:"bat",delay:240+Math.floor(i/5)*545+(i%5)*76,pattern:["leftArc","cross","rightArc","sweep","cross"][i%5]}))},
