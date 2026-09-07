@@ -23,7 +23,7 @@ function App() {
           <span>SHIELD SPACE · PAUSE ESC</span>
         </footer>
       </section>
-      <p className="build-label">PREVIEW · CAMPAIGN POLISH</p>
+      <p className="build-label">PREVIEW · ROUND PICKUPS</p>
     </main>
   );
 }

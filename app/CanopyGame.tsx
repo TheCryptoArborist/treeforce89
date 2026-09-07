@@ -7,11 +7,16 @@ export default function CanopyGame() {
   useEffect(() => {
     let game: Phaser.Game | undefined;
     let cancelled = false;
-    Promise.all([import("./game/arcade"), import("./game/campaign-polish")]).then(
-      ([{ createCanopyGame }, { installCampaignPolish }]) => {
+    Promise.all([
+      import("./game/arcade"),
+      import("./game/campaign-polish"),
+      import("./game/rounded-pickups"),
+    ]).then(
+      ([{ createCanopyGame }, { installCampaignPolish }, { installRoundedPickups }]) => {
         if (cancelled || !mount.current) return;
         game = createCanopyGame(mount.current);
         installCampaignPolish(game);
+        installRoundedPickups(game);
       },
     );
     return () => { cancelled = true; game?.destroy(true); };
