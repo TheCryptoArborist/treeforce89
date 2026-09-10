@@ -22,14 +22,14 @@ export const tuning={chainMs:2500,pruneInvuln:600,damageInvuln:1250,pruneChargeM
 export const enemyConfig={bat:{hp:1,score:100,growth:2,pruneCharge:10},borer:{hp:2,score:250,growth:5,pruneCharge:18},spore:{hp:1,score:200,growth:4,pruneCharge:15},small:{hp:1,score:50,growth:1,pruneCharge:5},boss:{hp:24,score:10000,growth:10,pruneCharge:25}} as const;
 export const waves=[
  // Campaign I — the opener teaches movement and firing before the canopy turns hostile.
- {name:"MISTWOOD MUSTER",spawns:[...Array(8)].map((_,i)=>({type:"bat",delay:2200+Math.floor(i/4)*3100+(i%4)*520,pattern:i%4<2?"leftArc":"rightArc"}))},
- {name:"VINEFIRE VOLLEY",spawns:[...Array(16)].map((_,i)=>({type:"bat",delay:600+Math.floor(i/4)*1180+(i%4)*180,pattern:["leftArc","rightArc","cross","sweep"][i%4]}))},
- {name:"ROOTSNARE AMBUSH",spawns:[...Array(18)].map((_,i)=>({type:i%8===0?"borer":i%6===0?"spore":"bat",delay:520+Math.floor(i/4)*940+(i%4)*145,pattern:["sweep","rightArc","leftArc","cross"][i%4]}))},
- {name:"TWILIGHT TALON RAID",spawns:[...Array(24)].map((_,i)=>({type:"bat",delay:360+Math.floor(i/5)*700+(i%5)*100,pattern:["leftArc","cross","rightArc","sweep","cross"][i%5]}))},
- {name:"BLIGHTWING SWARM",spawns:[...Array(22)].map((_,i)=>({type:i%6===0?"spore":"bat",delay:420+Math.floor(i/4)*800+(i%4)*125,pattern:["cross","sweep","leftArc","rightArc"][i%4]}))},
- {name:"BORER BREACH",spawns:[...Array(22)].map((_,i)=>({type:i%5===0?"borer":i%7===0?"spore":"bat",delay:360+Math.floor(i/4)*760+(i%4)*110,pattern:["sweep","rightArc","cross","leftArc"][i%4]}))},
- {name:"THUNDERCANOPY",spawns:[...Array(26)].map((_,i)=>({type:i%8===0?"borer":i%5===0?"spore":"bat",delay:300+Math.floor(i/5)*690+(i%5)*92,pattern:["cross","leftArc","sweep","rightArc","cross"][i%5]}))},
- {name:"WILDFLIGHT RUSH",spawns:[...Array(30)].map((_,i)=>({type:"bat",delay:240+Math.floor(i/5)*570+(i%5)*76,pattern:["leftArc","cross","rightArc","sweep","cross"][i%5]}))},
- {name:"THE ROOTFRONT",spawns:[...Array(28)].map((_,i)=>({type:i%6===0?"borer":i%4===0?"spore":"bat",delay:290+Math.floor(i/4)*670+(i%4)*90,pattern:["sweep","cross","rightArc","leftArc"][i%4]}))},
+ {name:"MISTWOOD MUSTER",spawns:[...Array(12)].map((_,i)=>({type:"bat",delay:2200+Math.floor(i/4)*2700+(i%4)*520,pattern:i%4<2?"leftArc":"rightArc"}))},
+ {name:"VINEFIRE VOLLEY",spawns:[...Array(20)].map((_,i)=>({type:"bat",delay:600+Math.floor(i/4)*1120+(i%4)*180,pattern:["leftArc","rightArc","cross","sweep"][i%4]}))},
+ {name:"ROOTSNARE AMBUSH",spawns:[...Array(24)].map((_,i)=>({type:i%8===0?"borer":i%6===0?"spore":"bat",delay:520+Math.floor(i/4)*900+(i%4)*145,pattern:["sweep","rightArc","leftArc","cross"][i%4]}))},
+ {name:"TWILIGHT TALON RAID",spawns:[...Array(30)].map((_,i)=>({type:"bat",delay:360+Math.floor(i/5)*660+(i%5)*100,pattern:["leftArc","cross","rightArc","sweep","cross"][i%5]}))},
+ {name:"SHADOW WING SWARM",spawns:[...Array(32)].map((_,i)=>({type:i%6===0?"spore":"bat",delay:420+Math.floor(i/4)*760+(i%4)*125,pattern:["cross","sweep","leftArc","rightArc"][i%4]}))},
+ {name:"BORER BREACH",spawns:[...Array(34)].map((_,i)=>({type:i%5===0?"borer":i%7===0?"spore":"bat",delay:360+Math.floor(i/4)*720+(i%4)*110,pattern:["sweep","rightArc","cross","leftArc"][i%4]}))},
+ {name:"THUNDERCANOPY",spawns:[...Array(36)].map((_,i)=>({type:i%8===0?"borer":i%5===0?"spore":"bat",delay:300+Math.floor(i/5)*650+(i%5)*92,pattern:["cross","leftArc","sweep","rightArc","cross"][i%5]}))},
+ {name:"WILDFLIGHT RUSH",spawns:[...Array(40)].map((_,i)=>({type:"bat",delay:240+Math.floor(i/5)*545+(i%5)*76,pattern:["leftArc","cross","rightArc","sweep","cross"][i%5]}))},
+ {name:"THE ROOTFRONT",spawns:[...Array(42)].map((_,i)=>({type:i%6===0?"borer":i%4===0?"spore":"bat",delay:290+Math.floor(i/4)*635+(i%4)*90,pattern:["sweep","cross","rightArc","leftArc"][i%4]}))},
  {name:"THE CANOPY TYRANT",spawns:[{type:"boss",delay:1400,pattern:"boss"}]},
 ] as const;
