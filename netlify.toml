@@ -1,5 +1,5 @@
 [build]
-  command = "node --test tests/tree-account-session.test.mjs tests/continue*.test.mjs tests/tyrant-combat.test.mjs tests/capture-animation.test.mjs && npm run build"
+  command = "node --test tests/tree-account-session.test.mjs tests/continue*.test.mjs tests/tyrant-combat.test.mjs tests/capture-animation.test.mjs tests/boss-background.test.mjs && npm run build"
   publish = "dist"
 
 [build.environment]
