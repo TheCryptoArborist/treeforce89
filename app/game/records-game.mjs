@@ -11,6 +11,7 @@ export function wireRecords(game,store) {
     function taint(reason){if(!current)return;current.reasons.add(reason);s.run.practice=true;}
     function sample(){
       if(!current||!s.run)return;
+      if(s.run.practice&&!current.reasons.size)taint('Practice/test run');
       current.maxCombo=Math.max(current.maxCombo,integer(s.chain));
       current.maxGrowth=Math.max(current.maxGrowth,integer(s.run.maxStage)+1);
       current.maxWeapon=Math.max(current.maxWeapon,integer(s.weaponLevel)+1);
@@ -48,8 +49,8 @@ export function wireRecords(game,store) {
     for(const [name,key] of [['collectBoom','boom'],['collectSovereignShield','ghost']])wrap(name,old=>function(token,...args){const active=!!token?.active;const result=old.call(this,token,...args);if(current&&active&&!token.active)current[key]++;return result;});
     wrap('rescueCapturedWing',old=>function(...args){const before=this.grafted;const result=old.apply(this,args);if(current&&!before&&this.grafted)current.rescues++;return result;});
     wrap('endRun',old=>function(cleared=false){save(cleared);if(current)this.run.elapsedMs=integer(current.elapsed);return old.call(this,cleared);});
-    // Future payment adapter calls this only AFTER authorization and BEFORE restoring lives.
-    // No payment or credit issuance is implemented by this local preview.
+    // A successful server-authorized continue freezes first-credit scoring.
+    // The simulation adapter does not introduce real payment or credit issuance here.
     const beforeContinue=()=>{
       if(!current||current.continued)return;
       save(false);current.continued=true;current.id=uuid();taint('Continued run');
