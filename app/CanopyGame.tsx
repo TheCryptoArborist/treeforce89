@@ -4,6 +4,7 @@ import type Phaser from "phaser";
 import "./game/records.css";
 import "./game/tree-account.css";
 import "./game/continues.css";
+import "./game/account-dialog.css";
 
 export default function CanopyGame() {
   const mount = useRef<HTMLDivElement>(null);

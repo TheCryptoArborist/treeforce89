@@ -2,7 +2,7 @@ import { wireContinueGame, requestId } from './continue-flow.mjs';
 const make=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
 const button=(text,fn,cls='')=>{const b=make('button',cls,text);b.type='button';b.addEventListener('click',fn);return b;};
 const errors={
-  'sign-in-required':'Sign in to your TREE Account above, then reopen Test CC. No payment is requested.',
+  'sign-in-required':'Select SIGN IN HERE to reconnect without leaving this flight. No payment is requested.',
   'simulation-disabled':'The test ledger is not enabled on this address. Use the stable game preview.',
   'insufficient-test-credits':'You need 100 test CC. Create and confirm a simulated TREE top-up below.',
   'quote-expired':'That 45-second quote expired. Create a new test quote; nothing was charged.',
@@ -18,6 +18,7 @@ export function installTreeContinues(game,frame) {
   const kicker=make('p','cc-kicker','TREE ARCADE / SIMULATION ONLY');
   const title=make('h2','','TEST CANOPY CREDITS');title.id='cc-heading';
   const warning=make('p','cc-warning','No real TREE is spent. Test credits have no monetary value and will not carry into launch.');
+  const signIn=button('SIGN IN HERE',()=>game.events.emit('tree-account:open'));
   const flight=make('p','cc-flight');
   const total=make('div','cc-total','Sign in to view your test balance');
   const info=make('p','cc-info','100 test CC restores three Seedling lives with the starting weapon. One continue per run.');
@@ -33,9 +34,10 @@ export function installTreeContinues(game,frame) {
   const quickButton=button('TEST CONTINUE NOW (PRACTICE)',()=>{close();game.events.once('poststep',quickTest);});
   const closeButton=button('BACK TO GAME',()=>decline());
   const foot=make('p','cc-foot','Continue stops competitive scoring for this run. Scores and achievements are still local preview records. This does not unlock NFTree content or bonus levels.');
-  dialog.append(kicker,title,warning,flight,total,info,primary,quoteButton,quoteBox,message,failButton,quickButton,closeButton,foot);document.body.append(dialog);
+  dialog.append(kicker,title,warning,signIn,flight,total,info,primary,quoteButton,quoteBox,message,failButton,quickButton,closeButton,foot);document.body.append(dialog);
   function render(){
     if(disposed)return;
+    signIn.hidden=!!game.registry.get('treeAccountIdentity')?.authenticated;signIn.disabled=loading;
     bankButton.textContent=ledger?`TEST CC ${ledger.available.toLocaleString()}`:'TEST CC';
     total.textContent=ledger?`${ledger.available.toLocaleString()} TEST CC AVAILABLE${ledger.held?' · '+ledger.held+' RESERVED':''}`:'Sign in to view your test balance';
     title.textContent=mode==='continue'?'INSERT TEST CREDITS':'TEST CANOPY CREDITS';
@@ -55,7 +57,7 @@ export function installTreeContinues(game,frame) {
     try{response=await fetch('/api/canopy-credits',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(command),signal:AbortSignal.timeout(25000)});}
     catch{throw new Error('Connection interrupted. Retry this same action to reconcile it; do not start another purchase.');}
     const payload=await response.json();
-    if(!response.ok){const e=new Error(errors[payload.error]||payload.error||'Test service is unavailable.');e.code=payload.error;throw e;}
+    if(!response.ok){if(response.status===401)game.events.emit('tree-account:expired');const e=new Error(errors[payload.error]||payload.error||'Test service is unavailable.');e.code=payload.error;throw e;}
     if(payload.ledger?.mode!=='simulation')throw new Error('Invalid test ledger response.');
     ledger=payload.ledger;render();return payload;
   }
@@ -95,7 +97,7 @@ export function installTreeContinues(game,frame) {
   });}
   dialog.addEventListener('cancel',e=>{e.preventDefault();if(!closeButton.disabled)void decline();});
   dialog.addEventListener('keydown',e=>e.stopPropagation());
-  function identityChanged(identity){const next=identity?.accountId||null;if(next===owner)return;owner=next;ledger=null;render();if(next)void refresh();}
+  function identityChanged(identity){const next=identity?.accountId||null;if(next===owner){render();return;}owner=next;ledger=null;render();if(next)void refresh();}
   game.events.on('tree-account:identity',identityChanged);
   render();
   return ()=>{disposed=true;game.events.off('poststep',quickTest);bridge.destroy();game.events.off('tree-account:identity',identityChanged);close();bankButton.remove();dialog.remove();};
