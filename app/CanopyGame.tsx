@@ -1,4 +1,41 @@
 "use client";
-import {useEffect,useRef} from "react";
+import { useEffect, useRef } from "react";
 import type Phaser from "phaser";
-export default function CanopyGame(){const mount=useRef<HTMLDivElement>(null);useEffect(()=>{let game:Phaser.Game|undefined;let cancelled=false;import("./game/arcade").then(({createCanopyGame})=>{if(!cancelled&&mount.current)game=createCanopyGame(mount.current)});return()=>{cancelled=true;game?.destroy(true)}},[]);return <div ref={mount} className="phaser-mount" aria-label="Playable TREE FORCE '89 game"/>}
+import "./game/records.css";
+import "./game/tree-account.css";
+import "./game/continues.css";
+import "./game/account-dialog.css";
+
+export default function CanopyGame() {
+  const mount = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let game: Phaser.Game | undefined;
+    let disposeRecords: (() => void) | undefined;
+    let disposeAccount: (() => void) | undefined;
+    let disposeContinues: (() => void) | undefined;
+    let disposeTyrant: (() => void) | undefined;
+    let disposeCapture: (() => void) | undefined;
+    let disposeBackground: (() => void) | undefined;
+    let cancelled = false;
+    Promise.all([
+      import("./game/arcade"), import("./game/campaign-polish"),
+      import("./game/rounded-pickups"), import("./game/records-game.mjs"),
+      import("./game/tree-account.mjs"), import("./game/continue-ui.mjs"),
+      import("./game/tyrant-combat.mjs"), import("./game/capture-animation.mjs"),
+      import("./game/boss-background.mjs"),
+    ]).then(([{ createCanopyGame }, { installCampaignPolish }, { installRoundedPickups }, { installArcadeRecords }, { installTreeAccount }, { installTreeContinues }, { installTyrantCombat }, { installCaptureAnimation }, { installBossBackground }]) => {
+      if (cancelled || !mount.current) return;
+      game = createCanopyGame(mount.current);
+      installCampaignPolish(game); installRoundedPickups(game);
+      disposeTyrant = installTyrantCombat(game);
+      disposeCapture = installCaptureAnimation(game);
+      disposeBackground = installBossBackground(game);
+      const frame = mount.current.closest(".game-frame");
+      disposeRecords = installArcadeRecords(game, frame);
+      disposeAccount = installTreeAccount(game, frame);
+      disposeContinues = installTreeContinues(game, frame);
+    });
+    return () => { cancelled = true; disposeContinues?.(); disposeAccount?.(); disposeRecords?.(); disposeBackground?.(); disposeCapture?.(); disposeTyrant?.(); game?.destroy(true); };
+  }, []);
+  return <div ref={mount} className="phaser-mount" aria-label="Playable TREE FORCE '89 game" />;
+}
