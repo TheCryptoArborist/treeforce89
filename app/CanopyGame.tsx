@@ -3,8 +3,8 @@ import { useEffect, useRef } from "react";
 import type Phaser from "phaser";
 import "./game/records.css";
 import "./game/tree-account.css";
-import "./game/continues.css";
 import "./game/account-dialog.css";
+import "./game/tree-continue.css";
 
 export default function CanopyGame() {
   const mount = useRef<HTMLDivElement>(null);
@@ -20,10 +20,10 @@ export default function CanopyGame() {
     Promise.all([
       import("./game/arcade"), import("./game/campaign-polish"),
       import("./game/rounded-pickups"), import("./game/records-game.mjs"),
-      import("./game/tree-account.mjs"), import("./game/continue-ui.mjs"),
+      import("./game/tree-account.mjs"), import("./game/tree-continue-ui.mjs"),
       import("./game/tyrant-combat.mjs"), import("./game/capture-animation.mjs"),
       import("./game/boss-background.mjs"),
-    ]).then(([{ createCanopyGame }, { installCampaignPolish }, { installRoundedPickups }, { installArcadeRecords }, { installTreeAccount }, { installTreeContinues }, { installTyrantCombat }, { installCaptureAnimation }, { installBossBackground }]) => {
+    ]).then(([{ createCanopyGame }, { installCampaignPolish }, { installRoundedPickups }, { installArcadeRecords }, { installTreeAccount }, { installDirectTreeContinues }, { installTyrantCombat }, { installCaptureAnimation }, { installBossBackground }]) => {
       if (cancelled || !mount.current) return;
       game = createCanopyGame(mount.current);
       installCampaignPolish(game); installRoundedPickups(game);
@@ -33,7 +33,7 @@ export default function CanopyGame() {
       const frame = mount.current.closest(".game-frame");
       disposeRecords = installArcadeRecords(game, frame);
       disposeAccount = installTreeAccount(game, frame);
-      disposeContinues = installTreeContinues(game, frame);
+      disposeContinues = installDirectTreeContinues(game, frame);
     });
     return () => { cancelled = true; disposeContinues?.(); disposeAccount?.(); disposeRecords?.(); disposeBackground?.(); disposeCapture?.(); disposeTyrant?.(); game?.destroy(true); };
   }, []);
