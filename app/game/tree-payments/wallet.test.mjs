@@ -31,7 +31,8 @@ test('actual SDK prepares fixed TREE Transaction without fetch, building bytes, 
  assert.equal(data.sender,f.o.payer);assert.equal(data.gasData.budget,null);assert.equal(data.gasData.payment,null);
  const call=data.commands.find(c=>c.$kind==='MoveCall');assert.equal(call.MoveCall.package,f.d.packageId);
  assert.equal(call.MoveCall.function,'pay');assert.deepEqual(call.MoveCall.typeArguments,[P.coinType]);
- const serialized=await tx.toJSON();assert.ok(serialized.includes(P.amountRaw));
+ assert.ok(JSON.stringify(data).includes(P.amountRaw));
+ await assert.rejects(tx.toJSON(), /Client must be provided/); // Coin resolution belongs to the wallet/client.
  }finally{globalThis.fetch=old;}
 });
 for(const [name,mutate] of [
