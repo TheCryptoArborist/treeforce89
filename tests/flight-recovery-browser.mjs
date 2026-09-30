@@ -45,6 +45,7 @@ async function pageFor(token,wave=0,viewport={width:1200,height:1000}){
  await page.waitForFunction(()=>window.__treeRecoveryTestGame?.registry.get('treeAccountIdentity')?.authenticated);
  return {page,context};
 }
+async function inputDiagnostic(page){return page.evaluate(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return{paused:s.paused,sceneActive:g.scene.isActive('game'),physicsPaused:s.physics.world.isPaused,inputEnabled:s.input.enabled,keyboardEnabled:s.input.keyboard.enabled,globalKeyboard:g.input.keyboard.enabled,keyDown:s.input.keyboard.keys[65]?.isDown,x:s.player.x,velocity:s.player.body.velocity.x,lives:s.lives,focus:document.activeElement?.tagName,openDialogs:document.querySelectorAll('dialog[open]').length};});}
 try{
  for(const wave of [1,2,3,4,5,6,7,8,9,10]){
   // Separate fixture accounts must not share a payer: the database intentionally binds one account per wallet.
@@ -69,10 +70,17 @@ try{
   if(wave===10)assert.equal(restored.enemies.find(e=>e.kind==='boss').hp,59);
   await page.screenshot({path:`recovery-evidence/wave-${wave}-restored.png`,fullPage:true});
   await page.getByRole('button',{name:'RESUME AS PRACTICE — NO TREE',exact:true}).click();
-  await page.waitForFunction(()=>{const s=window.__treeRecoveryTestGame.scene.getScene('game');return !s.paused&&s.lives===3;});
-  await page.keyboard.down('a');await page.waitForTimeout(200);await page.keyboard.up('a');
+  // Key objects are created by the game's update loop. Wait for actual resumed input,
+  // rather than racing that first update on a software-rendered browser runner.
+  await page.waitForFunction(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return g.scene.isActive('game')&&!s.paused&&!s.physics.world.isPaused&&s.lives===3&&s.input.enabled&&s.input.keyboard.enabled&&s.input.keyboard.keys[65];},{},{timeout:5000}).catch(async e=>{throw Error('Input not ready: '+JSON.stringify(await inputDiagnostic(page))+' '+e.message);});
+  await page.keyboard.down('a');
+  try{await page.waitForFunction(()=>window.__treeRecoveryTestGame.scene.getScene('game').player.x<230,{},{timeout:3000});}
+  catch(e){throw Error('Movement failed: '+JSON.stringify(await inputDiagnostic(page))+' '+e.message);}
+  finally{await page.keyboard.up('a');}
   const x=await page.evaluate(()=>window.__treeRecoveryTestGame.scene.getScene('game').player.x);assert.ok(x<240,'Movement resumes');
-  await page.keyboard.down('z');await page.waitForTimeout(200);await page.keyboard.up('z');
+  await page.keyboard.down('z');
+  try{await page.waitForFunction(before=>window.__treeRecoveryTestGame.scene.getScene('game').run.shotsFired>before,snap.scene.run.shotsFired,{timeout:3000});}
+  finally{await page.keyboard.up('z');}
   const shot=await page.evaluate(()=>window.__treeRecoveryTestGame.scene.getScene('game').run.shotsFired);assert.ok(shot>snap.scene.run.shotsFired,'Shooting resumes');
   reports.push({wave,score,actors:restored.enemies.length,contextRecreated:true,threeLives:true,movement:true,shooting:true});console.log('PASS actual Phaser + PostgreSQL recovery wave',wave,JSON.stringify(reports.at(-1)));await context.close();
  }
