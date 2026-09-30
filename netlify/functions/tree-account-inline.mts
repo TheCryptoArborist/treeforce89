@@ -1,6 +1,4 @@
-import { createInlineProxy } from '../lib/tree-account-inline.mjs';
-export default async (request: Request) => createInlineProxy({
-  authOrigin: Netlify.env.get('TREE_ACCOUNT_AUTH_ORIGIN'),
-  gameOrigin: Netlify.env.get('TREE_ACCOUNT_GAME_ORIGIN'),
-})(request);
-export const config = { path: '/api/tree-account-inline' };
+import {createInlineProxy} from '../lib/tree-account-inline.mjs';
+import {accountConfig} from '../lib/recovery-candidate.mjs';
+export default async(request:Request)=>createInlineProxy(accountConfig(request,Netlify.env))(request);
+export const config={path:'/api/tree-account-inline'};
