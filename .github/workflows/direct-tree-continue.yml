@@ -18,7 +18,7 @@ jobs:
       - name: Install locked isolated wallet dependencies
         run: npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund
       - name: Direct continue and existing game regressions
-        run: node --test tests/direct-tree*.test.mjs tests/continue*.test.mjs tests/tree-account*.test.mjs tests/account-ui.test.mjs tests/capture-animation.test.mjs tests/boss-background.test.mjs tests/tyrant-combat.test.mjs
+        run: node --test --test-reporter=spec tests/direct-tree*.test.mjs tests/continue*.test.mjs tests/tree-account*.test.mjs tests/account-ui.test.mjs tests/capture-animation.test.mjs tests/boss-background.test.mjs tests/tyrant-combat.test.mjs
       - name: Install existing app dependencies and compile actual game
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
