@@ -48,7 +48,6 @@ async function pageFor(token,wave=0,viewport={width:1200,height:1000}){
 async function inputDiagnostic(page){return page.evaluate(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return{paused:s.paused,sceneActive:g.scene.isActive('game'),physicsPaused:s.physics.world.isPaused,inputEnabled:s.input.enabled,keyboardEnabled:s.input.keyboard.enabled,globalKeyboard:g.input.keyboard.enabled,keyDown:s.input.keyboard.keys[65]?.isDown,x:s.player.x,velocity:s.player.body.velocity.x,lives:s.lives,focus:document.activeElement?.tagName,openDialogs:document.querySelectorAll('dialog[open]').length};});}
 try{
  for(const wave of [1,2,3,4,5,6,7,8,9,10]){
-  // Separate fixture accounts must not share a payer: the database intentionally binds one account per wallet.
   const token=randomBytes(32).toString('hex'),accountId=randomUUID(),payer='0x'+randomBytes(32).toString('hex');
   identities.set(token,{authenticated:true,environment:'preview',accountId,wallet:{family:'sui',address:payer},expiresAt:Date.now()+1800000});
   const viewport=wave%2?{width:390,height:844}:{width:1200,height:1000};
@@ -56,22 +55,42 @@ try{
   await page.waitForFunction(()=>{const s=window.__treeRecoveryTestGame?.scene.getScene('game');return s?.enemies?.countActive()>0;},{},{timeout:15000});
   if(wave===10)await page.waitForFunction(()=>window.__treeRecoveryTestGame.scene.getScene('game').enemies.getChildren().some(e=>e.kind==='boss'&&e.settled),{},{timeout:10000});
   const score=7000+wave*50;
-  await page.evaluate(({score,wave})=>{const s=window.__treeRecoveryTestGame.scene.getScene('game');s.run.score=score;s.stage=0;s.grafted=false;s.invincible=false;s.cloakUntil=0;s.invulnUntil=0;s.lives=1;if(wave===10){const b=s.enemies.getChildren().find(e=>e.kind==='boss');b.hp=59;}s.damagePlayer();},{score,wave});
+  await page.evaluate(({score,wave})=>{
+   const s=window.__treeRecoveryTestGame.scene.getScene('game');
+   if(wave===3){
+    // Use actual game factories/handlers for nonstandard sprites rather than making
+    // the checkpoint itself a hand-authored fixture.
+    const leader=s.enemies.getChildren().find(e=>e.active);leader.hp=2;leader.setData('leader',true);s.hitEnemy(leader,1,false);
+    s.beginRootSnare();const captor=s.snareEnemy;
+    s.capturedStage=3;s.capturedWing=s.physics.add.sprite(captor.x,captor.y+45,'playerSheet',3);
+    captor.setData('corruptionHits',2).setData('lastCorruptAt',s.time.now-1000);s.corruptCapturedWing(captor);
+    s.spawn('spore');const spore=s.enemies.getChildren().find(e=>e.active&&e.kind==='spore');s.hitEnemy(spore,100,false);
+    s.killsSinceTurbo=1000;s.maybeDropVictoryTurbo(100,200,'bat');
+    s.killsSinceCloak=1000;s.maybeDropSovereignShield(350,200,'bat');
+   }
+   s.run.score=score;s.stage=0;s.grafted=false;s.invincible=false;s.cloakUntil=0;s.invulnUntil=0;s.lives=1;
+   if(wave===10){const b=s.enemies.getChildren().find(e=>e.kind==='boss');b.hp=59;}
+   s.damagePlayer();
+  },{score,wave});
   await page.waitForFunction(()=>document.querySelector('.flight-recovery-box button')?.textContent==='SAVED — SAFE TO RELOAD FOR TEST',{},{timeout:15000}).catch(async e=>{throw Error(e.message+' '+await page.locator('.flight-recovery-box').innerText())});
   const {rows}=await pool.query('SELECT snapshot_text FROM tree_continue_v1.checkpoints WHERE account_id=$1',[accountId]);assert.equal(rows.length,1);const snap=JSON.parse(rows[0].snapshot_text);
   assert.equal(snap.wave,wave);assert.equal(snap.score,score);
-  await context.close(); // Complete browser context loss, not just a mocked reload callback.
+  if(wave===3){
+   for(const key of ['leaderCracked','rootCaptor','playerSheet','small'])assert.ok(snap.scene.enemies.some(e=>e.texture===key),'Missing scenario actor '+key);
+   for(const key of ['victoryTurbo-circle-v1','sovereignShield-circle-v1'])assert.ok(snap.scene.pickups.some(e=>e.texture===key),'Missing circular pickup '+key);
+  }
+  await context.close();
   ({page,context}=await pageFor(token,0,viewport));await page.getByRole('button',{name:'SAVED FLIGHTS',exact:true}).click();
   await page.getByRole('button',{name:new RegExp('LOAD WAVE '+wave+' ·')}).click();
   await page.waitForFunction(()=>{const s=window.__treeRecoveryTestGame.scene.getScene('game');return s?.lives===0&&s.run?.continued===true&&document.querySelector('.flight-recovery-box')?.textContent.includes('loaded.');},{},{timeout:12000}).catch(async e=>{throw Error(e.message+' '+await page.locator('body').innerText())});
-  const restored=await page.evaluate(()=>{const s=window.__treeRecoveryTestGame.scene.getScene('game');return{wave:s.run.wave+1,score:s.run.score,lives:s.lives,rng:s.rng.seed,spawned:s.waveSpawned,paused:s.paused,enemies:s.enemies.getChildren().filter(e=>e.active).map(e=>({hp:e.hp,kind:e.kind})),practice:s.run.practice}});
+  const restored=await page.evaluate(()=>{const s=window.__treeRecoveryTestGame.scene.getScene('game');return{wave:s.run.wave+1,score:s.run.score,lives:s.lives,rng:s.rng.seed,spawned:s.waveSpawned,paused:s.paused,enemies:s.enemies.getChildren().filter(e=>e.active).map(e=>({hp:e.hp,kind:e.kind})),pickups:s.pickups.getChildren().filter(e=>e.active).map(e=>e.texture.key),corruptedFrame:s.enemies.getChildren().find(e=>e.texture.key==='playerSheet')?.frame.name,smallMotion:s.enemies.getChildren().filter(e=>e.kind==='small').every(e=>!e.settled&&e.diving&&e.body.velocity.y===90),practice:s.run.practice}});
   assert.equal(restored.wave,wave);assert.equal(restored.score,score);assert.equal(restored.lives,0);assert.equal(restored.rng,snap.scene.rngSeed);assert.equal(restored.spawned,snap.scene.values.waveSpawned);assert.equal(restored.paused,true);assert.equal(restored.practice,true);
   assert.deepEqual(restored.enemies,snap.scene.enemies.map(e=>({hp:e.props.hp,kind:e.props.kind})));
+  assert.deepEqual(restored.pickups,snap.scene.pickups.map(e=>e.texture));
+  if(wave===3){assert.equal(Number(restored.corruptedFrame),3);assert.equal(restored.smallMotion,true);}
   if(wave===10)assert.equal(restored.enemies.find(e=>e.kind==='boss').hp,59);
   await page.screenshot({path:`recovery-evidence/wave-${wave}-restored.png`,fullPage:true});
   await page.getByRole('button',{name:'RESUME AS PRACTICE — NO TREE',exact:true}).click();
-  // Key objects are created by the game's update loop. Wait for actual resumed input,
-  // rather than racing that first update on a software-rendered browser runner.
   await page.waitForFunction(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return g.scene.isActive('game')&&!s.paused&&!s.physics.world.isPaused&&s.lives===3&&s.input.enabled&&s.input.keyboard.enabled&&s.input.keyboard.keys[65];},{},{timeout:5000}).catch(async e=>{throw Error('Input not ready: '+JSON.stringify(await inputDiagnostic(page))+' '+e.message);});
   await page.keyboard.down('a');
   try{await page.waitForFunction(()=>window.__treeRecoveryTestGame.scene.getScene('game').player.x<230,{},{timeout:3000});}
@@ -82,7 +101,7 @@ try{
   try{await page.waitForFunction(before=>window.__treeRecoveryTestGame.scene.getScene('game').run.shotsFired>before,snap.scene.run.shotsFired,{timeout:3000});}
   finally{await page.keyboard.up('z');}
   const shot=await page.evaluate(()=>window.__treeRecoveryTestGame.scene.getScene('game').run.shotsFired);assert.ok(shot>snap.scene.run.shotsFired,'Shooting resumes');
-  reports.push({wave,score,actors:restored.enemies.length,contextRecreated:true,threeLives:true,movement:true,shooting:true});console.log('PASS actual Phaser + PostgreSQL recovery wave',wave,JSON.stringify(reports.at(-1)));await context.close();
+  reports.push({wave,score,actors:restored.enemies.length,pickups:restored.pickups.length,contextRecreated:true,threeLives:true,movement:true,shooting:true});console.log('PASS actual Phaser + PostgreSQL recovery wave',wave,JSON.stringify(reports.at(-1)));await context.close();
  }
  assert.deepEqual(errors,[]);assert.equal(paymentCalls,0);
  for(const table of ['orders','receipts','checkpoint_reviews'])assert.equal((await pool.query(`SELECT count(*)::int n FROM tree_continue_v1.${table}`)).rows[0].n,0);
