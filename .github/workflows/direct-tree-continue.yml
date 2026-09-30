@@ -3,11 +3,12 @@ on:
   push:
     branches: [feature/direct-tree-continues]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  test:
+  lock:
+    if: github.repository == 'TheCryptoArborist/treeforce89' && github.ref == 'refs/heads/feature/direct-tree-continues'
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -15,10 +16,11 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
-      - name: Resolve isolated wallet dependency lock for review
+      - name: Commit only the newly generated isolated dependency lock
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          test ! -f app/game/tree-payments/package-lock.json
           npm install --prefix app/game/tree-payments --package-lock-only --ignore-scripts --no-audit --no-fund
-          echo LOCK_GZIP_BASE64_BEGIN
-          gzip -c app/game/tree-payments/package-lock.json | base64 -w0
-          echo
-          echo LOCK_GZIP_BASE64_END
+          node --input-type=module -e "import fs from 'node:fs'; const content=fs.readFileSync('app/game/tree-payments/package-lock.json').toString('base64');fs.writeFileSync('/tmp/lock-request.json',JSON.stringify({message:'Lock reviewed isolated Sui wallet dependencies',branch:'feature/direct-tree-continues',content}));"
+          gh api --method PUT repos/TheCryptoArborist/treeforce89/contents/app/game/tree-payments/package-lock.json --input /tmp/lock-request.json --jq '.commit.sha'
