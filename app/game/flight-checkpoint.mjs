@@ -2,13 +2,15 @@
  * into a safe formation, preserving surviving enemies/HP, pending spawns, score and RNG.
  * This codec is NOT an anti-cheat validator or payment authorization.
  */
+import {drawRoundPickup} from './rounded-pickups.ts';
 const ID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const scalarKeys=['waveSpawned','waveKillsStart','waveDamage','captureUsed','capturedStage','extraLivesAwarded','killsSinceSeed','killsSinceCore','killsSinceTurbo','killsSinceBoom','killsSinceCloak','attackSerial','rushTargets','rushDestroyed','rushShotsFired','rushShotsHit','pruneTaught','seedTaught','coreTaught','turboTaught','boomTaught','cloakTaught'];
 const runKeys=['runId','seed','score','wave','kills','perfect','maxStage','shotsFired','shotsHit','mode'];
 const enemyKeys=['kind','hp','homeX','homeY','phase','formationIndex'];
 const dataKeys=['leader','family','baseScale','formationRow','transformed','escortAttack','boss','bossDamageStage','tyrantCombatV2','maxHp','tyrantArmorStage','pickupType','growthValue','spin','corrupted'];
 // Include the textures used by the campaign adapters, not just original arcade.ts.
-const textures=['nightwing','emberWasp','thornBeetle','duskMoth','blightSpore','barkDriller','stormShrike','riptailRaptor','rootguardSentinel','canopyTyrantV2','tyrant-armor-0','tyrant-armor-1','tyrant-armor-2','tyrant-armor-3','rootCaptor','leaderCracked','playerSheet','small','bat','borer','spore','growthSeed','weaponCore','victoryTurbo','boomLogo','sovereignShield','boomToken'];
+const roundTextures={'victoryTurbo-circle-v1':{source:'victoryTurbo',rim:'#f2d28a'},'sovereignShield-circle-v1':{source:'sovereignShield',rim:'#8eefff'}};
+const textures=['nightwing','emberWasp','thornBeetle','duskMoth','blightSpore','barkDriller','stormShrike','riptailRaptor','rootguardSentinel','canopyTyrantV2','tyrant-armor-0','tyrant-armor-1','tyrant-armor-2','tyrant-armor-3','rootCaptor','leaderCracked','playerSheet','small','bat','borer','spore','growthSeed','weaponCore','victoryTurbo','boomLogo','sovereignShield','boomToken',...Object.keys(roundTextures)];
 const kinds=['bat','borer','spore','small','boss'];
 const assert=(ok,message)=>{if(!ok)throw Error(message);};
 const number=(n,min,max)=>typeof n==='number'&&Number.isFinite(n)&&n>=min&&n<=max;
@@ -68,13 +70,20 @@ export function captureCheckpoint(scene,runId){
    enemies:scene.enemies.getChildren().filter(o=>o.active).map(o=>sprite(o,now)),pickups:scene.pickups.getChildren().filter(o=>o.active).map(o=>sprite(o,now))}};
  return validateCheckpoint(snap);
 }
+function ensureTexture(scene,key){
+ if(scene.textures.exists(key))return;
+ const spec=roundTextures[key];assert(spec&&scene.textures.exists(spec.source),'Missing checkpoint texture');
+ const source=scene.textures.get(spec.source).getSourceImage();
+ const canvas=drawRoundPickup(source,source.width,source.height,spec.rim);
+ assert(scene.textures.addCanvas(key,canvas),'Cannot rebuild rounded pickup texture');
+}
 /** Load ONLY into a fresh game scene, remaining paused with zero lives.
  * Any free practice restore is separate from this data load. Real purchases need receipt/lease authority.
  */
 export function rehydrateCheckpoint(scene,input){
  const s=validateCheckpoint(input),c=s.scene;
  assert(c.values.waveSpawned<=scene.waveData(s.wave-1).spawns.length,'Invalid pending spawns');
- for(const o of [...c.enemies,...c.pickups])assert(scene.textures.exists(o.texture),'Missing checkpoint texture');
+ for(const o of [...c.enemies,...c.pickups])ensureTexture(scene,o.texture);
  scene.paused=true;scene.physics.world.pause();scene.clearTouchState();
  scene.time.removeAllEvents();scene.tweens.killAll();
  for(const key of ['shots','bullets','branches','enemies','pickups'])scene[key].clear(true,true);
