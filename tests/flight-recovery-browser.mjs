@@ -47,7 +47,9 @@ async function pageFor(token,wave=0,viewport={width:1200,height:1000}){
 }
 try{
  for(const wave of [1,2,3,4,5,6,7,8,9,10]){
-  const token=randomBytes(32).toString('hex'),accountId=randomUUID();identities.set(token,{authenticated:true,environment:'preview',accountId,wallet:{family:'sui',address:'0x'+'1'.repeat(64)},expiresAt:Date.now()+1800000});
+  // Separate fixture accounts must not share a payer: the database intentionally binds one account per wallet.
+  const token=randomBytes(32).toString('hex'),accountId=randomUUID(),payer='0x'+randomBytes(32).toString('hex');
+  identities.set(token,{authenticated:true,environment:'preview',accountId,wallet:{family:'sui',address:payer},expiresAt:Date.now()+1800000});
   const viewport=wave%2?{width:390,height:844}:{width:1200,height:1000};
   let {page,context}=await pageFor(token,wave,viewport);await page.keyboard.press('Enter');
   await page.waitForFunction(()=>{const s=window.__treeRecoveryTestGame?.scene.getScene('game');return s?.enemies?.countActive()>0;},{},{timeout:15000});
