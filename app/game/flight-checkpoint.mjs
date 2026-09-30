@@ -6,8 +6,9 @@ const ID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{1
 const scalarKeys=['waveSpawned','waveKillsStart','waveDamage','captureUsed','capturedStage','extraLivesAwarded','killsSinceSeed','killsSinceCore','killsSinceTurbo','killsSinceBoom','killsSinceCloak','attackSerial','rushTargets','rushDestroyed','rushShotsFired','rushShotsHit','pruneTaught','seedTaught','coreTaught','turboTaught','boomTaught','cloakTaught'];
 const runKeys=['runId','seed','score','wave','kills','perfect','maxStage','shotsFired','shotsHit','mode'];
 const enemyKeys=['kind','hp','homeX','homeY','phase','formationIndex'];
-const dataKeys=['leader','family','baseScale','formationRow','transformed','escortAttack','boss','bossDamageStage','tyrantCombatV2','maxHp','tyrantArmorStage','pickupType','growthValue','spin'];
-const textures=['nightwing','emberWasp','thornBeetle','duskMoth','blightSpore','barkDriller','stormShrike','riptailRaptor','rootguardSentinel','canopyTyrantV2','small','bat','borer','spore','growthSeed','weaponCore','victoryTurbo','boomLogo','sovereignShield','boomToken'];
+const dataKeys=['leader','family','baseScale','formationRow','transformed','escortAttack','boss','bossDamageStage','tyrantCombatV2','maxHp','tyrantArmorStage','pickupType','growthValue','spin','corrupted'];
+// Include the textures used by the campaign adapters, not just original arcade.ts.
+const textures=['nightwing','emberWasp','thornBeetle','duskMoth','blightSpore','barkDriller','stormShrike','riptailRaptor','rootguardSentinel','canopyTyrantV2','tyrant-armor-0','tyrant-armor-1','tyrant-armor-2','tyrant-armor-3','rootCaptor','leaderCracked','playerSheet','small','bat','borer','spore','growthSeed','weaponCore','victoryTurbo','boomLogo','sovereignShield','boomToken'];
 const kinds=['bat','borer','spore','small','boss'];
 const assert=(ok,message)=>{if(!ok)throw Error(message);};
 const number=(n,min,max)=>typeof n==='number'&&Number.isFinite(n)&&n>=min&&n<=max;
@@ -28,6 +29,7 @@ function sprite(o,now){
   velocity:{x:body.velocity.x,y:body.velocity.y},body:{width:body.sourceWidth,height:body.sourceHeight,radius:body.isCircle?body.radius:0,offsetX:body.offset.x,offsetY:body.offset.y},
   data:Object.fromEntries(dataKeys.filter(k=>o.getData(k)!==undefined).map(k=>[k,o.getData(k)])),props:pick(o,enemyKeys),
   mutateIn:Math.max(0,(o.getData('mutateAt')||0)-now),fireAgo:Math.max(0,now-(o.lastFire||0))};
+ if(record.texture==='playerSheet')record.frame=Number(o.frame.name);
  return record;
 }
 export function validateCheckpoint(input){
@@ -45,6 +47,8 @@ export function validateCheckpoint(input){
  assert(Array.isArray(c.enemies)&&c.enemies.length<=256&&Array.isArray(c.pickups)&&c.pickups.length<=256,'Too many actors');
  for(const o of [...c.enemies,...c.pickups]){
   assert(textures.includes(o.texture)&&number(o.x,-2500,2500)&&number(o.y,-2500,2500)&&number(o.scaleX,.001,10)&&number(o.scaleY,.001,10)&&number(o.angle,-100000,100000)&&number(o.depth,-10,20),'Invalid actor');
+  if(o.texture==='playerSheet')assert(Number.isInteger(o.frame)&&number(o.frame,0,4),'Invalid corrupted-wing frame');
+  else assert(o.frame===undefined,'Unexpected actor frame');
   assert(number(o.velocity?.x,-2500,2500)&&number(o.velocity?.y,-2500,2500)&&number(o.body?.width,1,2048)&&number(o.body?.height,1,2048)&&number(o.body?.radius,0,1024)&&number(o.body?.offsetX,-2048,2048)&&number(o.body?.offsetY,-2048,2048),'Invalid actor body');
   assert(o.data&&Object.keys(o.data).every(k=>dataKeys.includes(k))&&o.props&&Object.keys(o.props).every(k=>enemyKeys.includes(k)),'Invalid actor fields');
   assert(number(o.mutateIn,0,86400000)&&number(o.fireAgo,0,86400000),'Invalid actor timing');
@@ -82,13 +86,14 @@ export function rehydrateCheckpoint(scene,input){
  scene.clearedRows=new Set(c.clearedRows);scene.escortKills=new Map(c.escortKills);scene.escortTargets=new Map(c.escortTargets);
  function restore(o,group){
   let actor;
-  if(o.props.kind==='boss'){scene.spawnCanopyTyrant();actor=scene.enemies.getChildren().find(e=>e.active&&e.kind==='boss');scene.tweens.killTweensOf(actor);}
-  else actor=group.create(o.x,o.y,o.texture);
+  if(o.props.kind==='boss'){scene.spawnCanopyTyrant();actor=scene.enemies.getChildren().find(e=>e.active&&e.kind==='boss');scene.tweens.killTweensOf(actor);actor.setTexture(o.texture);}
+  else actor=group.create(o.x,o.y,o.texture,o.frame);
   actor.setPosition(o.x,o.y).setScale(o.scaleX,o.scaleY).setAngle(0).setDepth(o.depth).setActive(true).setVisible(true);
   Object.assign(actor,o.props);for(const [key,value]of Object.entries(o.data))actor.setData(key,value);
+  if(o.data.corrupted)actor.setTint(0xff4fc8);
   if(o.body.radius)actor.body.setCircle(o.body.radius,o.body.offsetX,o.body.offsetY);else actor.body.setSize(o.body.width,o.body.height,false).setOffset(o.body.offsetX,o.body.offsetY);
   actor.body.reset(o.x,o.y);actor.setVelocity(o.velocity.x,o.velocity.y);
-  if(group===scene.enemies){actor.settled=true;actor.diving=false;actor.returning=false;actor.lastFire=scene.time.now-o.fireAgo;
+  if(group===scene.enemies){actor.settled=actor.kind!=='small';actor.diving=actor.kind==='small';actor.returning=false;actor.lastFire=scene.time.now-o.fireAgo;
    actor.setData('holding',false).setData('isCaptor',false).setData('rescueWindow',false).setData('motionDeadline',0).setData('mutateAt',o.mutateIn?scene.time.now+o.mutateIn:0);
    if(actor.kind!=='small')actor.setVelocity(0,0);
    if(actor.kind==='boss'){scene.bossHpText.setText(`CANOPY TYRANT  ${actor.hp} / 180`);scene.bossHpFill.setSize(212*actor.hp/180,7);scene.addBossDamage(actor,0);}
@@ -99,7 +104,6 @@ export function rehydrateCheckpoint(scene,input){
  c.enemies.forEach(o=>restore(o,scene.enemies));c.pickups.forEach(o=>restore(o,scene.pickups));scene.rng.seed=c.rngSeed;
  scene.lives=0;scene.stage=0;scene.weaponLevel=0;scene.growth=0;scene.pruneCharge=0;scene.turboUntil=0;scene.cloakUntil=0;scene.chain=0;scene.chainUntil=0;scene.waveClearing=false;
  scene.player.setActive(true).setVisible(true).setPosition(240,570).setVelocity(0,0);scene.player.body.reset(240,570);scene.applyStage(false);scene.updateHud();
- // A valid exhausted snapshot must have already consumed its score milestones.
  assert(scene.lives===0,'Inconsistent extra-life accounting');
  scene.paused=true;scene.physics.world.pause();return s;
 }
