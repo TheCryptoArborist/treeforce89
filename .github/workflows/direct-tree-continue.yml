@@ -1,0 +1,24 @@
+name: Direct TREE continue integration
+on:
+  push:
+    branches: [feature/direct-tree-continues]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Resolve isolated wallet dependency lock for review
+        run: |
+          npm install --prefix app/game/tree-payments --package-lock-only --ignore-scripts --no-audit --no-fund
+          echo LOCK_GZIP_BASE64_BEGIN
+          gzip -c app/game/tree-payments/package-lock.json | base64 -w0
+          echo
+          echo LOCK_GZIP_BASE64_END
