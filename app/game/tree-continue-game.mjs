@@ -8,8 +8,10 @@ export function wireDirectContinueGame(game,makeAttempt,ui){
   function unlock(f){s.clearTouchState();s.input.keyboard?.resetKeys?.();s.controllerFireHeld=false;if(s.input.keyboard)s.input.keyboard.enabled=f.keyboard;s.input.enabled=f.input;s.paused=false;s.physics.world.resume();if(game.scene.isPaused('game'))game.scene.resume('game');}
   s.create=function(...args){
    const recovered=game.registry.get('treeRecoveryRunId');
+   const paidRecovery=!!recovered&&game.registry.get('treePaidRecoveryRunId')===recovered;
    original.create.apply(this,args);
-   flight={id:recovered||crypto.randomUUID(),recovered:!!recovered,used:false,offered:false,ended:false};game.registry.remove('treeRecoveryRunId');
+   flight={id:recovered||crypto.randomUUID(),recovered:!!recovered,paidRecovery,used:false,offered:false,ended:false};
+   game.registry.remove('treeRecoveryRunId');game.registry.remove('treePaidRecoveryRunId');
    const f=flight;this.events.once('shutdown',()=>{if(flight===f){f.ended=true;ui.close();game.events.emit('tree-flight:closed',f.id);}});
    game.events.emit('tree-flight:started',{runId:f.id,recovered:f.recovered});
   };
@@ -27,10 +29,20 @@ export function wireDirectContinueGame(game,makeAttempt,ui){
     if(!await f.attempt.cancel())return false;current(f);f.ended=true;ui.close();unlock(f);original.endRun.call(s,false);
     game.events.once('poststep',()=>{if(!disposed&&flight===f){game.scene.stop('gameover');game.scene.start('game');}});return true;
    }});
-   game.events.emit('tree-flight:exhausted',{runId:f.id,recovered:f.recovered,scene:s,practiceResume:()=>{
-    current(f);if(!game.registry.get('treeRecoveryPracticeAllowed')||f.attempt.state.signingAttempted)throw Error('Practice recovery unavailable');
-    s.run.practice=true;s.run.continued=true;game.events.emit('arcade:continue-authorized');restoreArborwing(s,3);resume();
-   }});
+   game.events.emit('tree-flight:exhausted',{runId:f.id,recovered:f.recovered,scene:s,
+    // Renderer port only: the receipt-backed controller must activate the server
+    // lease first. This port itself is NOT payment evidence or anti-cheat.
+    openPaidPort:()=>{
+     current(f);const run=s.run;let applied=false,completed=false;f.paidRecovery=true;
+     const assertPaused=()=>{current(f);if(completed||applied||s.run!==run||f.used||!f.offered||s.lives!==0||!s.paused||!s.physics.world.isPaused)throw Error('Paid flight is not awaiting delivery.');};
+     return{assertPaused,restore(lives){assertPaused();if(lives!==3)throw Error('Invalid paid life count.');applied=true;
+       game.events.emit('arcade:continue-authorized');s.run.continued=true;restoreArborwing(s,3);
+      },resume(){current(f);if(!applied||completed||s.run!==run||s.lives!==3||f.used||!f.offered)throw Error('Paid flight restoration is incomplete.');completed=true;resume();}};
+    },
+    practiceResume:()=>{
+     current(f);if(f.paidRecovery||!game.registry.get('treeRecoveryPracticeAllowed')||f.attempt.state.signingAttempted)throw Error('Practice recovery unavailable');
+     s.run.practice=true;s.run.continued=true;game.events.emit('arcade:continue-authorized');restoreArborwing(s,3);resume();
+    }});
   };
   undo.push(()=>{for(const[k,v]of Object.entries(original))s[k]=v;});
  }
