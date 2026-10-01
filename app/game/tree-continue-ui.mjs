@@ -34,16 +34,17 @@ export function installDirectTreeContinues(game, frame, { api: suppliedApi, wall
   fee.className = 'tree-continue-note';
   const signIn = button('SIGN IN WITH SUI');
   const pay = button('CONTINUE — 20,000 TREE'); pay.className = 'tree-continue-primary';
+  const recover = button('RECOVER TREE PURCHASE');
   const status = el('p'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.className = 'tree-continue-status';
   const wallets = el('div'); wallets.className = 'tree-continue-wallets'; wallets.hidden = true;
   const free = button('START NEW GAME — FREE');
   const warning = el('p', 'No Canopy Credits package is needed. Continued flights are casual, not ranked.'); warning.className = 'tree-continue-note';
-  dialog.append(kicker, title, subtitle, flight, price, details, fee, signIn, pay, wallets, status, free, warning);
+  dialog.append(kicker, title, subtitle, flight, price, details, fee, signIn, pay, wallets, status, recover, free, warning);
   document.body.append(dialog);
   function render() {
     if (disposed) return;
     const i = game.registry.get('treeAccountIdentity'), s = offer?.attempt.state;
-    signIn.hidden = i?.authenticated === true && i.wallet?.family === 'sui'; signIn.disabled = loading;
+    signIn.hidden = i?.authenticated === true && i.wallet?.family === 'sui'; signIn.disabled = loading; recover.disabled = loading;
     pay.textContent = s?.signingAttempted ? 'CHECK PAYMENT / RESUME' : 'CONTINUE — 20,000 TREE';
     let previous=null,storageError=false;try{previous=pending.read();}catch{storageError=true;}
     const otherPending = previous?.signingAttempted && previous.runId !== offer?.runId;
@@ -93,6 +94,7 @@ export function installDirectTreeContinues(game, frame, { api: suppliedApi, wall
   pay.onclick = () => task(() => offer.attempt.continue());
   free.onclick = () => task(() => offer.startNew());
   signIn.onclick = () => game.events.emit('tree-account:open');
+  recover.onclick = () => { if(!loading)game.events.emit('tree-purchase-recovery:open'); };
   dialog.addEventListener('keydown', e => e.stopPropagation());
   dialog.addEventListener('cancel', e => { e.preventDefault(); if (!free.disabled) void task(() => offer.startNew()); });
   game.events.on('tree-account:identity', render);
