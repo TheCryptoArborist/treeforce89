@@ -1,5 +1,7 @@
 import { TREE_CONTINUE as P } from './tree-continue-policy.mjs';
-import { createTreeContinueAttempt } from './tree-continue-attempt.mjs';
+import { createTreeContinueAttempt } from './tree-continue-checkout.mjs';
+import { createPaidFlightSceneLoader } from './paid-flight-scene.mjs';
+import { installPurchaseRecovery } from './purchase-recovery-ui.mjs';
 import { wireDirectContinueGame } from './tree-continue-game.mjs';
 import { pendingPurchase } from './tree-payments/pending.mjs';
 const el = (tag, text) => { const e = document.createElement(tag); if (text) e.textContent = text; return e; };
@@ -10,13 +12,17 @@ const explanations = {
   'wrong-payer': 'Use the same Sui wallet as your signed-in TREE Account.',
   'account-changed': 'The account changed. Return to the original account to recover this purchase.',
   'payment-not-yet-verified': 'Payment is not confirmed yet. Check its status; do not pay again.',
-  'delivery-recovery-required': 'This purchase already has a delivery record. Recovery needs verification; do not pay again.',
-  'quote-expired': 'This purchase request expired. No new payment will be requested for this order. Start a free game or check the existing purchase.',
+  'delivery-review-required': 'This continue has an activation record and needs review. Do not pay again. Open RECOVER TREE PURCHASE to keep its order and flight details.',
+  'delivery-in-use': 'This continue is reserved in another tab. Return there or wait for the reservation to expire. No new payment is needed.',
+  'earlier-purchase-recovery-required': 'An earlier purchase needs recovery before another payment. Open RECOVER TREE PURCHASE.',
+  'missing-purchase-review-required': 'A saved purchase marker could not be matched. Do not pay again; keep its order details for review.',
+  'delivery-protocol-required': 'The payment service is not ready for the new recovery protocol. No additional payment was requested.',
+  'quote-expired': 'This purchase request expired. Start a free game or check the existing purchase; do not submit a second payment.',
 };
 export function installDirectTreeContinues(game, frame, { api: suppliedApi, wallet: suppliedWallet, storage = localStorage } = {}) {
   if (!frame) return () => {};
   let offer = null, loading = false, disposed = false, wallet = suppliedWallet, walletChoice = null;
-  const pending = pendingPurchase(storage);
+  const pending = pendingPurchase(storage), loader = createPaidFlightSceneLoader(game);
   const dialog = el('dialog'); dialog.className = 'tree-continue-dialog'; dialog.setAttribute('aria-labelledby', 'tree-continue-heading');
   const kicker = el('p', 'TREE FORCE ’89 / SUI MAINNET'); kicker.className = 'tree-continue-kicker';
   const title = el('h2', 'OUT OF LIVES'); title.id = 'tree-continue-heading';
@@ -39,11 +45,12 @@ export function installDirectTreeContinues(game, frame, { api: suppliedApi, wall
     const i = game.registry.get('treeAccountIdentity'), s = offer?.attempt.state;
     signIn.hidden = i?.authenticated === true && i.wallet?.family === 'sui'; signIn.disabled = loading;
     pay.textContent = s?.signingAttempted ? 'CHECK PAYMENT / RESUME' : 'CONTINUE — 20,000 TREE';
-    const previous = pending.read();
+    let previous=null,storageError=false;try{previous=pending.read();}catch{storageError=true;}
     const otherPending = previous?.signingAttempted && previous.runId !== offer?.runId;
-    pay.disabled = loading || !!s?.done || !!otherPending;
+    pay.disabled = loading || !!s?.done || !!otherPending || storageError;
     free.disabled = loading || !!(s?.signingAttempted || s?.restored);
     if (otherPending) status.textContent = 'An unfinished purchase from an earlier flight needs recovery before another payment. Starting a new game is free.';
+    if(storageError)status.textContent='Browser purchase storage is unavailable. Use RECOVER TREE PURCHASE to check existing orders without paying.';
     if (offer) flight.textContent = `WAVE ${offer.wave} · ${Math.round(offer.score).toLocaleString()} POINTS · PAUSED`;
   }
   const api = suppliedApi || (async body => {
@@ -70,12 +77,14 @@ export function installDirectTreeContinues(game, frame, { api: suppliedApi, wall
     }, prepare: o => wallet.prepare(o), pay: (tx, o) => wallet.pay(tx, o), wait: d => wallet.wait(d),
   };
   const bridge = wireDirectContinueGame(game, hooks => createTreeContinueAttempt({ ...hooks, api, wallet: walletAdapter,
+    loadPaused:(snapshot,binding)=>loader.loadPaused(snapshot,binding),
     identity: () => game.registry.get('treeAccountIdentity'), pending,
     report: s => { status.textContent = explanations[s.message] || s.message || ''; render(); },
   }), { offer(o) { offer = o; status.textContent = 'Choose whether to continue or start over. TREE checkout is pending activation.';
       render(); if (!dialog.open) dialog.showModal(); free.focus(); },
     close() { if (dialog.open) dialog.close(); offer = null; },
   });
+  const disposeRecovery=installPurchaseRecovery(game,frame,{api,loader,pending});
   async function task(fn) {
     if (loading || !offer) return; loading = true; render();
     try { await fn(); } catch (e) { status.textContent = explanations[e.code] || 'Unable to confirm this action. Check payment status before trying another payment.'; }
@@ -87,5 +96,5 @@ export function installDirectTreeContinues(game, frame, { api: suppliedApi, wall
   dialog.addEventListener('keydown', e => e.stopPropagation());
   dialog.addEventListener('cancel', e => { e.preventDefault(); if (!free.disabled) void task(() => offer.startNew()); });
   game.events.on('tree-account:identity', render);
-  return () => { disposed = true; walletChoice?.(null); bridge.destroy(); game.events.off('tree-account:identity', render); dialog.remove(); };
+  return () => { disposed = true; walletChoice?.(null); disposeRecovery(); loader.dispose(); bridge.destroy(); game.events.off('tree-account:identity', render); dialog.remove(); };
 }
