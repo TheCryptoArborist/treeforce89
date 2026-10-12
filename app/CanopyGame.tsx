@@ -3,7 +3,6 @@ import {useEffect,useRef} from "react";
 import type Phaser from "phaser";
 import "./game/records.css";
 import "./game/tree-account.css";
-import "./game/account-dialog.css";
 import "./game/tree-continue.css";
 import "./game/flight-recovery.css";
 export default function CanopyGame(){

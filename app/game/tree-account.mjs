@@ -1,150 +1,151 @@
 import { discoverAccountWallets, connectAccountWallet, watchAccountWallet, signAccountMessage } from './account-wallets.mjs';
 import { holdGameForAccount } from './account-pause.mjs';
 const make = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
-const button = (text, fn, cls = '') => { const b = make('button', cls, text); b.type = 'button'; b.addEventListener('click', fn); return b; };
+const button = (text, fn) => { const b = make('button', '', text); b.type = 'button'; b.addEventListener('click', fn); return b; };
 const short = address => `${address.slice(0, 8)}…${address.slice(-6)}`;
-const messages = { 'sign-in-expired': 'The sign-in request expired. Please sign again.', 'expired-or-used-proof': 'This request expired or was already used. Please sign again.', 'invalid-signature': 'The signature could not be verified. Please reconnect and try again.', 'too-many-attempts': 'Too many sign-in attempts. Wait five minutes, then retry.', 'authentication-unavailable': 'Account verification is unavailable. Cancel to return to your flight, then retry.', 'preview-not-configured': 'Use the stable game preview address for sign-in.' };
+const valid = i => i?.authenticated === true && i.environment === 'preview' && i.wallet?.family === 'sui';
+const messages = { 'sign-in-expired': 'Verification expired. Connect again.', 'expired-or-used-proof': 'Verification expired. Connect again.', 'invalid-signature': 'Wallet verification failed. Connect again.', 'too-many-attempts': 'Wait five minutes before reconnecting.', 'authentication-unavailable': 'Wallet verification is unavailable. Your flight is unchanged.', 'preview-not-configured': 'Use the stable game preview address.' };
 
-/** Same-page sign-in. Wallet approval remains in the wallet's own trusted UI. */
+/** A top-of-game wallet picker. Connection and ownership verification are one app action. */
 export function installTreeAccount(game, frame) {
   if (!frame) return () => {};
-  let disposed = false, identity = null, configured = false, revision = 0, epoch = 0;
-  let connection = null, phase = 'idle', open = false, changedWhileVerifying = false;
-  let releasePause = () => {}, stopWalletWatch = () => {}, cancelPending = Promise.resolve(), focusReturn = null;
+  let disposed = false, identity = null, configured = false, revision = 0, epoch = 0, phase = 'idle';
+  let connection = null, operation = null, cancelWait = null, changedWhileVerifying = false;
+  let releasePause = () => {}, stopWalletWatch = () => {}, cancelPending = Promise.resolve();
   const registry = discoverAccountWallets();
-  const bar = make('section', 'tree-account-bar'); bar.setAttribute('aria-label', 'TREE Account sign-in');
-  const copy = make('div'), label = make('strong', '', 'GUEST PLAY'), note = make('small', '', 'Checking account sign-in…'); note.setAttribute('role', 'status'); copy.append(label, note);
-  const login = button('SIGN IN', () => show()), logout = button('SIGN OUT', () => signOut()); logout.hidden = true; login.disabled = true;
-  bar.append(copy, login, logout); frame.insertBefore(bar, frame.querySelector('.screen-bezel')); frame.classList.add('has-tree-account');
-  const dialog = make('dialog', 'account-dialog'); dialog.setAttribute('aria-labelledby', 'account-dialog-heading');
-  const heading = make('h2', '', 'SIGN IN TO TREE'); heading.id = 'account-dialog-heading';
-  const intro = make('p', 'account-dialog-intro', 'Stay in the game. Connect your Sui wallet to verify your TREE Account.');
-  const safety = make('p', 'account-dialog-safety', 'MESSAGE SIGNATURE ONLY · No payment, token approval, or asset transfer. Your flight stays paused.');
-  const walletLabel = make('label', '', 'WALLET'), walletSelect = make('select'); walletSelect.id = 'inline-wallet'; walletLabel.htmlFor = walletSelect.id;
-  const chainNote = make('p', 'account-dialog-hint', 'Sui Mainnet · identity verification only.');
-  const connect = button('CONNECT WALLET', () => connectWallet());
-  const accountLabel = make('label', '', 'ACCOUNT'), accountSelect = make('select'); accountSelect.id = 'inline-wallet-account'; accountLabel.htmlFor = accountSelect.id;
-  const sign = button('SIGN IN WITH SUI', () => signIn(), 'account-dialog-primary');
-  const status = make('p', 'account-dialog-status', ''); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  const cancel = button('CANCEL & RETURN TO GAME', () => close('Sign-in canceled. Your flight is unchanged.'));
-  const hint = make('p', 'account-dialog-hint', 'The wallet may open its own approval prompt. TREE does not open a second page. Scores and badges remain browser-local; test credits stay tied to your existing TREE Account.');
-  dialog.append(make('p', 'account-dialog-kicker', 'TREE ARCADE / ACCOUNT PREVIEW'), heading, intro, safety, walletLabel, walletSelect, chainNote, connect, accountLabel, accountSelect, sign, status, cancel, hint);
-  document.body.append(dialog);
-  const finalizing = () => phase === 'challenge' || phase === 'verifying';
-  const alive = token => !disposed && open && token === epoch;
+  const bar = make('section', 'tree-account-bar'); bar.setAttribute('aria-label', 'Sui wallet');
+  const label = make('strong', '', 'SUI MAINNET'), controls = make('div', 'tree-wallet-controls');
+  const walletLabel = make('label', 'tree-wallet-label', 'WALLET'), walletSelect = make('select'); walletSelect.id = 'tree-wallet'; walletSelect.setAttribute('aria-label', 'Sui wallet picker');
+  walletLabel.htmlFor = walletSelect.id;
+  const accountSelect = make('select'); accountSelect.setAttribute('aria-label', 'Wallet account'); accountSelect.hidden = true;
+  const connect = button('CONNECT WALLET', () => void connectWallet()), logout = button('DISCONNECT', () => void signOut()); logout.hidden = true;
+  const cancel = button('CANCEL', cancelConnection); cancel.hidden = true;
+  const note = make('p', 'tree-wallet-status', 'Checking wallet sign-in…'); note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
+  controls.append(walletLabel, walletSelect, accountSelect, connect, logout, cancel); bar.append(label, controls, note);
+  frame.insertBefore(bar, frame.querySelector('.screen-bezel')); frame.classList.add('has-tree-account');
+  game.registry.set('treeWalletKit', registry.app);
+  game.registry.set('treeAccountConnect', connectWallet);
+  const alive = token => !disposed && token === epoch;
+  const finalizing = () => phase === 'challenge' || phase === 'verifying' || phase === 'logout';
   function render() {
     if (disposed) return;
-    label.textContent = identity ? `TREE ACCOUNT · ${short(identity.wallet.address)}` : 'GUEST PLAY';
-    label.title = identity ? `Preview TREE Account ${identity.accountId}` : '';
-    login.hidden = !!identity; logout.hidden = !identity; login.disabled = !configured || phase === 'logout'; logout.disabled = phase === 'logout';
     const busy = phase !== 'idle';
-    walletSelect.disabled = busy;
-    connect.disabled = busy || !walletSelect.value; connect.textContent = phase === 'connecting' ? 'CONNECTING…' : 'CONNECT WALLET';
-    accountLabel.hidden = accountSelect.hidden = sign.hidden = !connection; accountSelect.disabled = busy;
-    sign.textContent = phase === 'signing' ? 'APPROVE IN YOUR WALLET…' : phase === 'verifying' ? 'VERIFYING ACCOUNT…' : 'SIGN IN WITH SUI';
-    sign.disabled = busy || !accountSelect.value; cancel.disabled = finalizing();
-    cancel.textContent = finalizing() ? 'VERIFYING — PLEASE WAIT' : 'CANCEL & RETURN TO GAME';
+    label.textContent = identity ? `${connection?.name || 'SUI WALLET'} · ${short(identity.wallet.address)}` : 'SUI MAINNET';
+    walletSelect.hidden = walletLabel.hidden = !!identity;
+    walletSelect.disabled = busy; accountSelect.disabled = busy;
+    accountSelect.hidden = !identity || (connection?.accounts.length || 0) < 2;
+    connect.hidden = !!identity; connect.disabled = busy || !!operation || !configured || !walletSelect.value;
+    connect.textContent = busy ? phase === 'connecting' ? 'CONNECTING…' : phase === 'signing' ? 'APPROVE IN WALLET…' : 'VERIFYING…' : 'CONNECT WALLET';
+    logout.hidden = !identity; logout.disabled = busy;
+    cancel.hidden = phase === 'idle' || phase === 'logout'; cancel.disabled = finalizing();
   }
-  function publish() { game.registry.set('treeAccountIdentity', identity); game.events.emit('tree-account:identity', identity); render(); }
+  function publish() {
+    const previous = game.registry.get('treeAccountIdentity'); game.registry.set('treeAccountIdentity', identity);
+    if (previous?.accountId !== identity?.accountId || previous?.wallet?.address !== identity?.wallet?.address || previous?.authenticated !== identity?.authenticated) game.events.emit('tree-account:identity', identity);
+    render();
+  }
   async function api(body, inline = false) {
     const r = await fetch(inline ? '/api/tree-account-inline' : '/api/tree-account', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(22000), ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) });
-    const p = await r.json(); if (!r.ok) throw new Error(messages[p.error] || 'Account sign-in was not completed. Please retry.'); return p;
+    const p = await r.json(); if (!r.ok) throw new Error(messages[p.error] || 'Wallet verification was not completed. Please retry.'); return p;
   }
   async function refresh() {
-    if (disposed || open || phase !== 'idle') return;
+    if (disposed || operation || phase !== 'idle') return;
     const serial = ++revision;
-    try { const p = await api(); if (disposed || open || serial !== revision) return;
-      identity = p.identity?.authenticated === true && p.identity.environment === 'preview' && p.identity.wallet?.family === 'sui' ? p.identity : null;
-      configured = p.configured === true;
-      note.textContent = identity ? 'Signed in · scores and badges remain browser-local.' : 'Sui Mainnet · sign in here · no payment';
-    } catch { if (disposed || open || serial !== revision) return; identity = null; configured = false; note.textContent = 'Sign-in service unavailable. Guest play still works.'; }
+    try {
+      const p = await api(); if (disposed || operation || serial !== revision) return;
+      identity = valid(p.identity) ? p.identity : null; configured = p.configured === true;
+      note.textContent = identity ? 'Wallet verified. Continues cost 20,000 TREE.' : 'Connect and approve a free verification message. Continues cost 20,000 TREE.';
+    } catch { if (disposed || operation || serial !== revision) return; identity = null; configured = false; note.textContent = 'Wallet verification unavailable. Free play still works.'; }
     publish();
   }
   function walletOptions() {
-    const selected = walletSelect.value; walletSelect.replaceChildren();
-    const wallets = registry.list('sui');
-    for (const w of wallets) { const option = make('option', '', w.name); option.value = w.id; walletSelect.append(option); }
+    const selected = walletSelect.value, wallets = registry.list('sui'); walletSelect.replaceChildren();
+    for (const w of wallets) { const o = make('option', '', w.name); o.value = w.id; walletSelect.append(o); }
     if (wallets.some(w => w.id === selected)) walletSelect.value = selected;
-    if (!wallets.length) { const option = make('option', '', 'No compatible Sui wallet detected'); option.value = ''; walletSelect.append(option); }
-    render();
+    else if (wallets.some(w => /slush/i.test(w.name))) walletSelect.value = wallets.find(w => /slush/i.test(w.name)).id;
+    if (!wallets.length) { const o = make('option', '', 'No Sui wallet detected'); o.value = ''; walletSelect.append(o); }
+    game.registry.set('treeWalletId', walletSelect.value); render();
   }
-  function disconnectSelection() { stopWalletWatch(); stopWalletWatch = () => {}; connection = null; accountSelect.replaceChildren(); }
-  walletSelect.addEventListener('change', () => { disconnectSelection(); render(); });
-  function show() {
-    if (disposed || open || phase === 'logout') return;
-    open = true; ++epoch; ++revision; phase = 'idle'; disconnectSelection();
-    focusReturn = document.activeElement; releasePause = holdGameForAccount(game);
-    status.textContent = 'Choose a wallet. Sign-in does not spend TREE or test credits.';
-    walletOptions(); dialog.showModal(); registry.refresh(); cancel.focus();
-  }
-  function close(message, success = false) {
-    if (!open || finalizing()) return;
-    open = false; ++epoch; ++revision; phase = 'idle'; disconnectSelection();
-    dialog.close(); releasePause(); releasePause = () => {};
-    if (!success) cancelPending = api({ action: 'cancel' }, true).catch(() => {});
-    note.textContent = message; render();
-    if (focusReturn?.isConnected && !focusReturn.hidden) focusReturn.focus(); else (identity ? logout : login).focus();
+  function clearConnection() { stopWalletWatch(); stopWalletWatch = () => {}; connection = null; accountSelect.replaceChildren(); }
+  function finishPause() { releasePause(); releasePause = () => {}; }
+  function cancelConnection() {
+    if (finalizing() || phase === 'idle') return;
+    ++epoch; ++revision; phase = 'idle'; clearConnection(); finishPause(); cancelWait?.();
+    cancelPending = api({ action: 'cancel' }, true).catch(() => {});
+    note.textContent = 'Connection canceled. Your flight is unchanged.'; render();
   }
   function walletChanged() {
     if (phase === 'verifying') { changedWhileVerifying = true; return; }
-    ++epoch; phase = 'idle'; disconnectSelection();
-    cancelPending = api({ action: 'cancel' }, true).catch(() => {});
-    status.textContent = 'Wallet account or network changed. Reconnect before signing.'; render();
+    ++epoch; ++revision; phase = 'idle'; identity = null; clearConnection(); finishPause(); cancelWait?.(); publish();
+    cancelPending = api({ action: 'cancel' }, true).catch(() => {}).then(() => api({ action: 'logout' }).catch(() => {}));
+    note.textContent = 'Wallet changed. Connect again to verify the selected account.';
   }
-  async function connectWallet() {
-    if (phase !== 'idle') return;
-    const row = registry.list('sui').find(w => w.id === walletSelect.value); if (!row) return;
-    const token = ++epoch; phase = 'connecting'; status.textContent = 'Choose an account in your wallet.'; render();
+  async function verify(c, account, token) {
+    phase = 'challenge'; changedWhileVerifying = false; note.textContent = 'Preparing a free wallet verification message…'; render();
+    const proof = await api({ action: 'challenge', family: 'sui', address: account.address, chainId: 'sui:mainnet' }, true);
+    if (!alive(token)) return null;
+    phase = 'signing'; note.textContent = 'Approve the verification message in your wallet. No payment is requested.'; render();
+    const signature = await signAccountMessage(c, account, proof.message); if (!alive(token)) return null;
+    phase = 'verifying'; note.textContent = 'Verifying wallet…'; render();
+    const p = await api({ action: 'verify', signature }, true); if (!alive(token)) return null;
+    if (changedWhileVerifying) { await api({ action: 'logout' }); throw new Error('Wallet changed. Connect again.'); }
+    if (!valid(p.identity) || p.identity.wallet.address.toLowerCase() !== account.address.toLowerCase()) throw new Error('Wallet verification did not complete.');
+    identity = p.identity; configured = true; accountSelect.value = account.address;
+    note.textContent = 'Wallet verified. Continues cost 20,000 TREE.'; publish(); return identity;
+  }
+  function connectWallet() {
+    if (identity) return Promise.resolve(identity);
+    if (operation) return operation;
+    const row = registry.list('sui').find(w => w.id === walletSelect.value);
+    if (!configured || !row || disposed) { note.textContent = 'Choose a Sui wallet above to connect.'; render(); return Promise.resolve(null); }
+    operation = Promise.race([runConnection(row), new Promise(resolve => { cancelWait = () => resolve(null); })]).finally(() => { operation = null; cancelWait = null; render(); }); return operation;
+  }
+  async function runConnection(row) {
+    const token = ++epoch; ++revision; phase = 'connecting'; releasePause = holdGameForAccount(game);
+    note.textContent = 'Choose an account in your wallet.'; render();
     try {
-      await cancelPending; if (!alive(token)) return;
-      const c = await connectAccountWallet(row); if (!alive(token)) return;
-      disconnectSelection(); connection = c;
-      for (const a of c.accounts) { const option = make('option', '', short(a.address)); option.value = a.address; accountSelect.append(option); }
+      await cancelPending; if (!alive(token)) return null;
+      const c = await connectAccountWallet(row); if (!alive(token)) return null;
+      clearConnection(); connection = c;
+      for (const a of c.accounts) { const o = make('option', '', short(a.address)); o.value = a.address; accountSelect.append(o); }
+      const account = registry.app.stores.$connection.get().account;
       stopWalletWatch = watchAccountWallet(c, walletChanged);
-      status.textContent = 'Connected. Select your account, then approve the sign-in message.';
-    } catch (e) { if (alive(token)) status.textContent = e.message || 'Wallet connection was canceled.'; }
-    finally { if (alive(token)) { phase = 'idle'; render(); } }
-  }
-  async function signIn() {
-    if (phase !== 'idle' || !connection) return;
-    const c = connection, account = c.accounts.find(a => a.address === accountSelect.value); if (!account) return;
-    const token = ++epoch; phase = 'challenge'; changedWhileVerifying = false; status.textContent = 'Preparing a one-time sign-in message…'; render();
-    try {
-      await cancelPending; if (!alive(token)) return;
-      const proof = await api({ action: 'challenge', family: c.family, address: account.address, chainId: c.chainId }, true);
-      if (!alive(token)) return;
-      phase = 'signing'; status.textContent = 'Review the sign-in message in your wallet. No payment is requested.'; render();
-      const signature = await signAccountMessage(c, account, proof.message); if (!alive(token)) return;
-      phase = 'verifying'; status.textContent = 'Verifying your signature. The flight is still paused…'; render();
-      const p = await api({ action: 'verify', signature }, true); if (!alive(token)) return;
-      if (changedWhileVerifying) { await api({ action: 'logout' }); throw new Error('Wallet changed during verification. Reconnect and sign again.'); }
-      if (!p.identity?.authenticated || p.identity.environment !== 'preview' || p.identity.wallet?.family !== 'sui') throw new Error('Account verification did not complete.');
-      identity = p.identity; configured = true; phase = 'idle'; publish(); close('Signed in · same flight · scores and badges remain browser-local.', true);
+      return await verify(c, account, token);
     } catch (e) {
-      if (!alive(token)) return;
-      phase = 'idle'; cancelPending = api({ action: 'cancel' }, true).catch(() => {});
-      if (Number(e.code) === 4001 || /reject|declin|cancel/i.test(e.message || '')) close('Signature declined. No payment was made; your flight is unchanged.');
-      else { status.textContent = e.name === 'TimeoutError' ? 'Verification timed out. Cancel to return to your flight, then retry.' : e.message || 'Sign-in failed. Please retry.'; render(); }
-    }
+      if (alive(token)) { identity = null; note.textContent = Number(e.code) === 4001 || /reject|declin|cancel/i.test(e.message || '') ? 'Wallet approval declined. No payment was made.' : e.message || 'Wallet connection failed.'; cancelPending = api({ action: 'cancel' }, true).catch(() => {}); publish(); }
+      return null;
+    } finally { if (alive(token)) { phase = 'idle'; finishPause(); render(); } }
   }
   async function signOut() {
-    if (phase !== 'idle') return; phase = 'logout'; ++revision; render();
-    try { await api({ action: 'logout' }); identity = null; note.textContent = 'Signed out. Local records and gameplay are unchanged.'; }
-    catch { note.textContent = 'Sign-out could not be confirmed. Please retry.'; }
+    if (phase !== 'idle' || operation) return;
+    phase = 'logout'; ++revision; stopWalletWatch(); stopWalletWatch = () => {}; render();
+    try { await api({ action: 'logout' }); identity = null; clearConnection(); if (registry.app.stores.$connection.get().wallet) await registry.app.disconnectWallet(); note.textContent = 'Wallet disconnected. Free play is available.'; }
+    catch { note.textContent = 'Disconnect could not be confirmed. Please retry.'; }
     finally { phase = 'idle'; publish(); }
   }
-  dialog.addEventListener('cancel', event => { event.preventDefault(); close('Sign-in canceled. Your flight is unchanged.'); });
-  dialog.addEventListener('keydown', event => event.stopPropagation());
-  const unsub = registry.subscribe(walletOptions);
-  const focus = () => { if (!open) void refresh(); };
-  const expired = () => { identity = null; note.textContent = 'Session expired. Sign in here to use test credits.'; publish(); };
-  game.events.on('tree-account:open', show); game.events.on('tree-account:expired', expired);
-  window.addEventListener('focus', focus);
-  const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 60000);
-  void refresh();
+  walletSelect.addEventListener('change', () => { game.registry.set('treeWalletId', walletSelect.value); render(); });
+  accountSelect.addEventListener('change', () => {
+    if (phase !== 'idle' || !connection || operation) return;
+    const c = connection, account = c.accounts.find(a => a.address === accountSelect.value); if (!account) return;
+    const token = ++epoch; ++revision; phase = 'logout'; stopWalletWatch(); stopWalletWatch = () => {}; identity = null;
+    releasePause = holdGameForAccount(game); publish();
+    operation = (async () => {
+      try { await api({ action: 'logout' }); if (!alive(token)) return null; registry.app.switchAccount({ account }); stopWalletWatch = watchAccountWallet(c, walletChanged); return await verify(c, account, token); }
+      catch (e) { if (alive(token)) { note.textContent = e.message || 'Account verification failed.'; cancelPending = api({ action: 'cancel' }, true).catch(() => {}); } return null; }
+      finally { if (alive(token)) { phase = 'idle'; finishPause(); render(); } }
+    })().finally(() => { operation = null; render(); });
+  });
+  bar.addEventListener('keydown', e => e.stopPropagation());
+  const open = () => { bar.scrollIntoView({ block: 'nearest' }); walletSelect.focus(); void connectWallet(); };
+  const expired = () => { identity = null; note.textContent = 'Session expired. Connect your wallet again.'; publish(); };
+  const unsub = registry.subscribe(walletOptions); walletOptions();
+  game.events.on('tree-account:open', open); game.events.on('tree-account:expired', expired);
+  const focus = () => { if (!operation) void refresh(); }; window.addEventListener('focus', focus);
+  const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 60000); void refresh();
   return () => {
-    disposed = true; ++epoch; ++revision; window.clearInterval(timer); window.removeEventListener('focus', focus);
-    game.events.off('tree-account:open', show); game.events.off('tree-account:expired', expired); unsub(); registry.destroy(); stopWalletWatch();
-    releasePause(); dialog.remove(); bar.remove(); frame.classList.remove('has-tree-account');
+    disposed = true; ++epoch; ++revision; cancelWait?.(); window.clearInterval(timer); window.removeEventListener('focus', focus);
+    game.events.off('tree-account:open', open); game.events.off('tree-account:expired', expired); unsub(); registry.destroy(); stopWalletWatch(); finishPause();
+    for (const k of ['treeWalletKit', 'treeWalletId', 'treeAccountConnect']) game.registry.remove(k);
+    bar.remove(); frame.classList.remove('has-tree-account');
   };
 }

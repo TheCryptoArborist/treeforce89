@@ -10,7 +10,7 @@ assert.equal(process.env.PGHOST,'127.0.0.1');assert.equal(process.env.PGDATABASE
 const pool=new Pool({max:4});
 await pool.query('CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;');
 for(const name of ['direct-continue-schema.sql','migrations/flight-storage-v1.sql','migrations/recovery-candidate-rpc.sql'])await pool.query(await readFile(resolve('backend/services/canopy-credits',name),'utf8'));
-const identities=new Map();let storageCalls=0,paymentCalls=0;
+const identities=new Map(),uiChallenges=new Map();let storageCalls=0,paymentCalls=0;
 const gateway=createRecoveryGateway({verifySession:async token=>identities.get(token),invokeStorage:async params=>{
  const db=await pool.connect();try{await db.query('BEGIN');await db.query('SET LOCAL ROLE service_role');storageCalls++;
  const args=['p_account','p_payer','p_action','p_run','p_request','p_snapshot','p_hash'].map(k=>params[k]);
@@ -22,8 +22,19 @@ const server=createServer(async(req,res)=>{
  try{
  const url=new URL(req.url,'http://127.0.0.1');const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('fixture='))?.slice(8);
  let response;
- if(url.pathname==='/api/tree-account')response=Response.json({status:'ok',configured:true,identity:identities.get(token)||null});
- else if(url.pathname==='/api/tree-account-inline')response=Response.json({status:'ok'}); // Modal cancellation only; no authentication is fabricated.
+ if(url.pathname==='/api/tree-account'){
+  if(req.method==='POST'){const chunks=[];for await(const c of req)chunks.push(c);const b=JSON.parse(Buffer.concat(chunks));if(b.action==='logout')identities.delete(token);}
+  response=Response.json({status:'ok',configured:true,identity:identities.get(token)||null});
+ }
+ else if(url.pathname==='/api/tree-account-inline'){
+  const chunks=[];for await(const c of req)chunks.push(c);const b=JSON.parse(Buffer.concat(chunks));
+  if(b.action==='challenge'){uiChallenges.set(token,b.address);response=Response.json({status:'ok',message:'Fixture wallet verification',expiresAt:Date.now()+300000});}
+  else if(b.action==='verify'){
+   assert.equal(b.signature,'fixture-signed');
+   const identity={authenticated:true,environment:'preview',accountId:randomUUID(),wallet:{family:'sui',address:uiChallenges.get(token)},expiresAt:Date.now()+1800000};
+   identities.set(token,identity);response=Response.json({status:'ok',identity});
+  }else response=Response.json({status:'ok'});
+ }
  else if(url.pathname==='/api/tree-continue'){paymentCalls++;response=Response.json({error:'checkout-not-enabled'},{status:503});}
  else if(url.pathname==='/api/tree-flight'){
   const chunks=[];for await(const c of req)chunks.push(c);
@@ -50,34 +61,59 @@ async function inputDiagnostic(page){return page.evaluate(()=>{const g=window.__
 try{
  for(const width of [320,390,1200]){
   const context=await browser.newContext({viewport:{width,height:900}});
+  await context.addCookies([{name:'fixture',value:'wallet-ui-'+width,url:'http://127.0.0.1:4173'}]);
   await context.addInitScript(()=>{
-   window.__suiOnlyWalletCalls={connect:0,sign:0,evmDiscovery:0,evmAccess:0};
-   const calls=window.__suiOnlyWalletCalls,account={address:'0x'+'1'.repeat(64),chains:['sui:mainnet']};
-   const wallet={name:'Sui test fixture',chains:['sui:mainnet'],accounts:[account],features:{
-    'standard:connect':{connect:async()=>{calls.connect++;return{accounts:[account]}}},
-    'sui:signPersonalMessage':{signPersonalMessage:async()=>{calls.sign++;throw Error('No signature expected in modal check')}}
+   window.__suiOnlyWalletCalls={connect:0,sign:0,transaction:0,evmDiscovery:0,evmAccess:0};window.__walletMode='success';
+   const calls=window.__suiOnlyWalletCalls,listeners=new Set();
+   const account={address:'0x'+'1'.repeat(64),publicKey:new Uint8Array(32),chains:['sui:mainnet'],features:['sui:signPersonalMessage','sui:signTransaction','sui:signAndExecuteTransaction']};
+   const second={...account,address:'0x'+'2'.repeat(64)};
+   const wallet={version:'1.0.0',name:'Slush fixture',icon:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',chains:['sui:mainnet'],accounts:[account,second],features:{
+    'standard:events':{version:'1.0.0',on:(_e,fn)=>{listeners.add(fn);return()=>listeners.delete(fn)}},
+    'standard:connect':{version:'1.0.0',connect:async()=>{calls.connect++;if(window.__walletMode==='connectReject')throw Error('Malicious website');if(window.__walletMode==='connectWait')return new Promise(()=>{});wallet.accounts=[account,second];listeners.forEach(fn=>fn({accounts:wallet.accounts}));return{accounts:wallet.accounts}}},
+    'standard:disconnect':{version:'1.0.0',disconnect:async()=>{wallet.accounts=[];listeners.forEach(fn=>fn({accounts:[]}))}},
+    'sui:signPersonalMessage':{version:'1.1.0',signPersonalMessage:async()=>{calls.sign++;if(window.__walletMode==='signReject')throw Object.assign(Error('User rejected'),{code:4001});return{signature:'fixture-signed',bytes:''}}},
+    'sui:signTransaction':{version:'2.0.0',signTransaction:async()=>{calls.transaction++;throw Error('No payment expected')}},
+    'sui:signAndExecuteTransaction':{version:'2.0.0',signAndExecuteTransaction:async()=>{calls.transaction++;throw Error('No payment expected')}}
    }};
    window.addEventListener('wallet-standard:app-ready',e=>e.detail.register(wallet));
    window.addEventListener('eip6963:requestProvider',()=>calls.evmDiscovery++);
    Object.defineProperty(window,'ethereum',{get(){calls.evmAccess++;throw Error('EVM provider must not be accessed')}});
   });
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  const page=await context.newPage(),inlineCalls=[];page.on('pageerror',e=>errors.push(e.message));
+  page.on('request',r=>{if(r.url().endsWith('/api/tree-account-inline'))inlineCalls.push(JSON.parse(r.postData()).action)});
   await page.goto('http://127.0.0.1:4173/?recoveryTest=1');
   await page.waitForFunction(()=>window.__treeRecoveryTestGame?.scene.isActive('title'),{},{timeout:20000});
-  await page.getByRole('button',{name:'SIGN IN',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'SIGN IN TO TREE'});
-  await dialog.waitFor({state:'visible'});
-  assert.equal(await dialog.getByRole('button',{name:'EVM',exact:true}).count(),0);
-  assert.equal(await dialog.locator('#inline-network').count(),0);
-  assert.equal(await dialog.getByRole('combobox').first().inputValue(),'sui-1');
-  await dialog.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
-  await dialog.getByRole('button',{name:'SIGN IN WITH SUI',exact:true}).waitFor({state:'visible'});
-  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:1,sign:0,evmDiscovery:0,evmAccess:0});
+  const bar=page.getByRole('region',{name:'Sui wallet'});
+  await bar.getByRole('combobox',{name:'Sui wallet picker'}).getByRole('option',{name:'Slush fixture',exact:true}).waitFor({state:'attached'});
+  await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
+  await bar.getByRole('button',{name:'DISCONNECT',exact:true}).waitFor({state:'visible'});
+  assert.equal(await page.getByRole('dialog').count(),0);
+  assert.equal(await bar.getByRole('button',{name:'EVM',exact:true}).count(),0);
+  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:1,sign:1,transaction:0,evmDiscovery:0,evmAccess:0});
+  assert.deepEqual(inlineCalls,['challenge','verify']);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
-  await page.screenshot({path:`recovery-evidence/sui-only-sign-in-${width}.png`,fullPage:true});
-  await dialog.getByRole('button',{name:'CANCEL & RETURN TO GAME',exact:true}).click();
-  await dialog.waitFor({state:'hidden'});
-  await context.close();console.log('PASS Sui-only modal at width',width);
+  await page.screenshot({path:`recovery-evidence/simple-wallet-${width}.png`,fullPage:true});
+  await bar.getByRole('combobox',{name:'Wallet account'}).selectOption('0x'+'2'.repeat(64));
+  await bar.getByText('Slush fixture · 0x222222…222222',{exact:true}).waitFor({state:'visible'});
+  assert.equal(inlineCalls.filter(a=>a==='verify').length,2);
+  await bar.getByRole('button',{name:'DISCONNECT',exact:true}).click();
+  await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).waitFor({state:'visible'});
+  await page.evaluate(()=>window.__walletMode='connectReject');
+  await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
+  await bar.getByText('Malicious website',{exact:true}).waitFor({state:'visible'});
+  assert.equal(inlineCalls.filter(a=>a==='challenge').length,2);
+  await page.evaluate(()=>window.__walletMode='signReject');
+  await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
+  await bar.getByText('Wallet approval declined. No payment was made.',{exact:true}).waitFor({state:'visible'});
+  assert.equal(inlineCalls.filter(a=>a==='verify').length,2);
+  assert.equal((await page.evaluate(()=>window.__suiOnlyWalletCalls)).transaction,0);
+  await page.evaluate(()=>window.__walletMode='connectWait');
+  await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
+  await bar.getByRole('button',{name:'CANCEL',exact:true}).click();
+  await bar.getByText('Connection canceled. Your flight is unchanged.',{exact:true}).waitFor({state:'visible'});
+  assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.scene.isActive('title')),true);
+  assert.equal(inlineCalls.filter(a=>a==='verify').length,2);
+  await context.close();console.log('PASS top wallet picker, automatic verification, account switch, cancellation and security/signature rejection at width',width);
  }
  for(const wave of [1,2,3,4,5,6,7,8,9,10]){
   const token=randomBytes(32).toString('hex'),accountId=randomUUID(),payer='0x'+randomBytes(32).toString('hex');
@@ -105,6 +141,10 @@ try{
    s.damagePlayer();
   },{score,wave});
   await page.waitForFunction(()=>document.querySelector('.flight-recovery-box button')?.textContent==='SAVED — SAFE TO RELOAD FOR TEST',{},{timeout:15000}).catch(async e=>{throw Error(e.message+' '+await page.locator('.flight-recovery-box').innerText())});
+  assert.equal(await page.locator('.tree-continue-panel').isVisible(),true);
+  assert.equal(await page.getByRole('dialog').count(),0);
+  assert.equal(await page.getByRole('button',{name:'CONTINUE — 20,000 TREE',exact:true}).count(),1);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
   const {rows}=await pool.query('SELECT snapshot_text FROM tree_continue_v1.checkpoints WHERE account_id=$1',[accountId]);assert.equal(rows.length,1);const snap=JSON.parse(rows[0].snapshot_text);
   assert.equal(snap.wave,wave);assert.equal(snap.score,score);
   if(wave===3){

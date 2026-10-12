@@ -1,5 +1,4 @@
-import { createDAppKit } from '@mysten/dapp-kit-core';
-import { SuiGrpcClient } from '@mysten/sui/grpc';
+import { getSuiApp } from './sui-app.mjs';
 import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
 import { TREE_CONTINUE as P, requireContinue as need, sameAddress, validateOrder } from '../tree-continue-policy.mjs';
@@ -83,8 +82,7 @@ export async function paymentTransaction(order, deployment=APPROVED_DEPLOYMENT, 
 }
 export function createPaymentWallet({ deployment = APPROVED_DEPLOYMENT, kit, selectWallet, connectTimeoutMs=45000 } = {}) {
   const d = deployment && Object.freeze({ ...deployment });
-  const app = kit || createDAppKit({ networks: ['mainnet'], defaultNetwork: 'mainnet', autoConnect: false,
-    createClient: () => new SuiGrpcClient({ network: 'mainnet', baseUrl: 'https://fullnode.mainnet.sui.io:443' }) });
+  const app = kit || getSuiApp();
   let connecting=null;
   return {
     async connect(payer) {
@@ -94,7 +92,8 @@ export function createPaymentWallet({ deployment = APPROVED_DEPLOYMENT, kit, sel
         const wallets = app.stores.$wallets.get(); need(wallets.length > 0, 'no-sui-wallet');
         const wallet = await selectWallet(wallets); need(wallet, 'wallet-not-selected');
         need(!connecting,'wallet-connection-pending');
-        const request=app.connectWallet({wallet});connecting=request;
+        const account=wallet.accounts?.find(a=>sameAddress(a.address,payer));
+        const request=app.connectWallet({wallet,...(account?{account}:{})});connecting=request;
         const finished=()=>{if(connecting===request)connecting=null;};request.then(finished,finished);
         let timer;
         try{await Promise.race([request,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(Error('wallet-connection-timeout'),{code:'wallet-connection-timeout'})),connectTimeoutMs);})]);}

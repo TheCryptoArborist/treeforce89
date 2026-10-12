@@ -5,9 +5,11 @@ const btn=(text,fn)=>{const b=el('button',text);b.type='button';b.onclick=fn;ret
 const allowed=()=>location.origin===exactOrigin||(['127.0.0.1','localhost'].includes(location.hostname)&&new URLSearchParams(location.search).get('recoveryTest')==='1');
 export function installFlightRecovery(game,frame){
  if(!allowed()||!frame)return()=>{};
- game.registry.set('treeRecoveryPracticeAllowed',true);
- let closed=false,current=null,snapshot=null,saved=false,busy=false,revision=0,savedOwner=null,loaded=null;
+ const debug=new URLSearchParams(location.search).get('recoveryTest')==='1';
+ game.registry.set('treeRecoveryPracticeAllowed',debug);
+ let closed=false,current=null,snapshot=null,saved=false,busy=false,revision=0,savedOwner=null,loaded=null,saving=null;
  const box=el('section');box.className='flight-recovery-box';
+ box.hidden=!debug;
  const status=el('p','RECOVERY PREVIEW · No TREE payment is enabled.');status.setAttribute('role','status');
  const save=btn('SAVE FLIGHT FOR RELOAD TEST',()=>void saveCurrent());
  const practice=btn('RESUME AS PRACTICE — NO TREE',()=>{try{current?.practiceResume();}catch(e){status.textContent=e.message;}});
@@ -28,7 +30,7 @@ export function installFlightRecovery(game,frame){
  const rows=el('div');
  const closeButton=btn('CLOSE',()=>dialog.close());
  dialog.append(el('h2','SAVED FLIGHTS'),el('p','Testing recovery only. No TREE is spent, and this is not a paid-continue authorization.'),info,rows,closeButton);document.body.append(dialog);
- const open=btn('SAVED FLIGHTS',()=>{if(!dialog.open)dialog.showModal();void refreshList();});frame.querySelector('.records-toolbar')?.append(open);
+ const open=btn('SAVED FLIGHTS',()=>{if(!dialog.open)dialog.showModal();void refreshList();});open.hidden=!debug;frame.querySelector('.records-toolbar')?.append(open);
  const identity=()=>game.registry.get('treeAccountIdentity');
  const signedInWithSui=()=>identity()?.authenticated===true&&identity()?.wallet?.family==='sui'&&!!identity()?.accountId;
  async function api(c){
@@ -48,7 +50,11 @@ export function installFlightRecovery(game,frame){
   practice.disabled=busy||!current;
   save.textContent=saved?'SAVED — SAFE TO RELOAD FOR TEST':'SAVE FLIGHT FOR RELOAD TEST';
  }
- async function saveCurrent(){
+ function saveCurrent(){
+  if(saving)return saving;
+  saving=saveFlight().finally(()=>{saving=null;});return saving;
+ }
+ async function saveFlight(){
   if(busy||!current||!snapshot||saved)return;
   const account=identity()?.accountId;if(!signedInWithSui()){status.textContent='Sign in with your Sui wallet, then save this exhausted flight.';return;}
   if(savedOwner&&savedOwner!==account){status.textContent='Return to the original signed-in account.';return;}
@@ -61,6 +67,12 @@ export function installFlightRecovery(game,frame){
   }catch(e){if(!closed&&serial===revision)status.textContent=e.message;}
   finally{if(serial===revision){busy=false;render();}}
  }
+ const saveForContinue=async runId=>{
+  if(closed||current?.runId!==runId)throw Error('This flight has ended.');
+  await saveCurrent();
+  if(!saved||savedOwner!==identity()?.accountId||current?.runId!==runId)throw Error('Unable to save this flight. No payment was requested.');
+ };
+ game.registry.set('treeFlightSave',saveForContinue);
  async function load(runId){
   if(busy)return;const active=game.scene.isActive('game')||game.scene.isPaused('game');
   if(active){info.textContent='Finish the current flight or refresh before loading a saved flight.';return;}
@@ -109,5 +121,5 @@ export function installFlightRecovery(game,frame){
   render();if(dialog.open)void refreshList();
  };game.events.on('tree-account:identity',changed);
  dialog.addEventListener('keydown',e=>e.stopPropagation());render();
- return()=>{closed=true;++revision;signIn.onclick=null;game.registry.remove('treeRecoveryPracticeAllowed');game.events.off('ready',attach);game.events.off('tree-flight:exhausted',exhausted);game.events.off('tree-flight:closed',flightClosed);game.events.off('tree-account:identity',changed);restoreCreate?.();dialog.remove();box.remove();open.remove();};
+ return()=>{closed=true;++revision;signIn.onclick=null;game.registry.remove('treeRecoveryPracticeAllowed');game.registry.remove('treeFlightSave');game.events.off('ready',attach);game.events.off('tree-flight:exhausted',exhausted);game.events.off('tree-flight:closed',flightClosed);game.events.off('tree-account:identity',changed);restoreCreate?.();dialog.remove();box.remove();open.remove();};
 }
