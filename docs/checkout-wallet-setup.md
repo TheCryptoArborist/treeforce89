@@ -1,5 +1,13 @@
 # Paused Sui mainnet checkout publication
 
+## Current wallet blocker (October 12)
+
+The operator's Slush Browser Extension displayed “Malicious website” before wallet connection completed. Browser tests and the public-address mainnet simulation do not cover Slush's installed-wallet website classification. The public Mysten wallet lists at `a88d558746f9169a11f5c1a812509facdd24a723` have no exact hostname or parent-suffix block for the preview, but that does not explain the live verdict. No wallet/security exception has been approved and no publication has occurred.
+
+The connected GitHub integration cannot create issues in Mysten's repository (`403 Resource not accessible by integration`). The official support request is prepared but unsubmitted, because it requires a reply email. The Slush web-wallet connection route requires sign-in before reviewing the request. No security setting has been disabled, alternate hostname used to evade the verdict, or transaction approved. The live verdict still needs resolution by its security provider.
+
+Wallet connections now time out after 45 seconds instead of leaving the page stuck indefinitely. A pending underlying request prevents duplicate prompts; late connection responses cannot prepare or publish a transaction. A wallet rejection returns directly to the page without gas simulation or publication. The UI explicitly tells users to return to safety when Slush shows a security warning.
+
 The admin setup page at https://deploy-preview-3--treeforce89.netlify.app/checkout-setup publishes the production checkout from the approved admin wallet. It requires a successful public-account mainnet gas simulation before offering a wallet approval. No custom installer, wallet key import, or testnet setup is involved.
 
 Admin and UpgradeCap recipient: `0x485953e2eadf4aa02af950cf8e914fbd2b67523385e73c36118341459d8d45c4`.

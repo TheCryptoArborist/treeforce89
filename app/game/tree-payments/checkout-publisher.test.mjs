@@ -61,3 +61,24 @@ test('wallet switching and concurrent clicks never create another submission', a
   assert.equal(sends, 1); assert.equal(JSON.parse(stored.get(RECEIPT_KEY)).paused, true);
   await p.connect({}); await assert.rejects(p.publish(), /already submitted/); assert.equal(sends, 1);
 });
+test('blocked wallet connection times out, refuses duplicate prompts, and ignores late connection for publication', async () => {
+  let finish, requests = 0, simulations = 0, sends = 0;
+  const pending = new Promise(resolve => {finish = resolve;});
+  const kit = {stores: {$currentNetwork: {get: () => 'mainnet'}, $connection: {get: () => ({account: {address: ADMIN}})}, $wallets: {get: () => []}}, connectWallet: () => {requests++; return pending;}, signAndExecuteTransaction: async () => {sends++;}};
+  const f = fixture(); f.client.core.simulateTransaction = async () => {simulations++;};
+  const p = createPublisher({origin: SETUP_ORIGIN, kit, client: f.client, storage: {getItem: () => null}, connectTimeoutMs: 5});
+  await assert.rejects(p.connect({}), /security warning/);
+  await assert.rejects(p.connect({}), /existing wallet prompt/);
+  assert.equal(requests, 1);
+  finish(); await pending;
+  await assert.rejects(p.publish(), /refresh the publication estimate/);
+  assert.equal(simulations, 0); assert.equal(sends, 0);
+});
+test('wallet security rejection returns an error without gas simulation or publication', async () => {
+  let simulations = 0;
+  const kit = {connectWallet: async () => {throw new Error('Website blocked by wallet security');}};
+  const p = createPublisher({origin: SETUP_ORIGIN, kit, storage: {}, client: {core: {simulateTransaction: async () => {simulations++;}}}});
+  await assert.rejects(p.connect({}), /blocked by wallet security/);
+  await assert.rejects(p.publish(), /refresh/);
+  assert.equal(simulations, 0);
+});

@@ -72,11 +72,11 @@ export async function verifyPublication(client, digest) {
   need(ao.owner.AddressOwner === ADMIN && uo.owner.AddressOwner === ADMIN && a.checkout_id === checkoutId && u.package === packageId && u.version === '1' && u.policy === 0, 'Checkout capabilities do not match the approved ownership and upgrade policy.');
   return {network: 'mainnet', digest, packageId, checkoutId, initialSharedVersion: co.owner.Shared.initialSharedVersion, adminCapId, upgradeCapId, paused: true, payloadSha256: pinnedHash, sourceCommit: CHECKOUT_PACKAGE.sourceCommit};
 }
-export function createPublisher({origin, storage = localStorage, kit, client} = {}) {
+export function createPublisher({origin, storage = localStorage, kit, client, connectTimeoutMs = 45000} = {}) {
   need(origin === SETUP_ORIGIN, 'Checkout setup is available on the approved preview only.');
   const node = client || new SuiGrpcClient({network: 'mainnet', baseUrl: 'https://fullnode.mainnet.sui.io:443'});
   const app = kit || createDAppKit({networks: ['mainnet'], defaultNetwork: 'mainnet', autoConnect: false, createClient: () => node});
-  let prepared = null, busy = false;
+  let prepared = null, busy = false, connectionPending = null;
   const checkWallet = () => {
     need(app.stores.$currentNetwork.get() === 'mainnet', 'Switch your wallet to Sui mainnet.');
     need(app.stores.$connection.get().account?.address === ADMIN, 'Select the approved admin wallet account.');
@@ -84,8 +84,19 @@ export function createPublisher({origin, storage = localStorage, kit, client} = 
   return {
     wallets: () => app.stores.$wallets.get(),
     async connect(wallet) {
+      need(!connectionPending, 'Close the existing wallet prompt before trying to connect again.');
       prepared = null;
-      await app.connectWallet({wallet}); checkWallet(); await checkNetwork(node);
+      const request = app.connectWallet({wallet});
+      connectionPending = request;
+      const finished = () => {if (connectionPending === request) connectionPending = null;};
+      request.then(finished, finished);
+      let timer;
+      try {
+        await Promise.race([request, new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('Wallet connection has not completed. Check the wallet prompt. If Slush shows a security warning, choose Return to safety. Publication has not started.')), connectTimeoutMs);
+        })]);
+      } finally {clearTimeout(timer);}
+      checkWallet(); await checkNetwork(node);
       const tx = await publicationTransaction();
       const result = await node.core.simulateTransaction({transaction: tx, doGasSelection: true, include: {effects: true, transaction: true}});
       need(result.Transaction?.status.success, 'The mainnet publication simulation failed. Check the admin account has SUI for gas.');
