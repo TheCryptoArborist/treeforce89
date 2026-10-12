@@ -11,7 +11,7 @@ const reader=connectMainnetReader(),identity=await reader.getNetworkIdentity(),m
 assert.equal(identity.chainIdentifier,'35834a8a');assert.equal(metadata.decimals,6);
 const recent=await reader.getRecentTransactionDigests();const receipt=await reader.getFinalizedTransaction(recent.digests[0]);assert.equal(receipt.finalized,true);
 const query=await fetch('https://graphql.mainnet.sui.io/graphql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:TRANSFER_DISCOVERY_QUERY,variables:{payer,before:null,last:1}}),signal:AbortSignal.timeout(15000)});
-const data=await query.json();assert.ok(query.ok);assert.equal(data.errors,undefined,JSON.stringify(data.errors));assert.equal(data.data.chainIdentifier,'35834a8a');assert.ok(Array.isArray(data.data.transactions.nodes));
+const data=await query.json();assert.ok(query.ok);assert.equal(data.errors,undefined,JSON.stringify(data.errors));assert.equal(data.data.chainIdentifier,identity.genesisDigest);assert.ok(Array.isArray(data.data.transactions.nodes));
 const now=Date.now(),terms={kind:'direct-continue',product:P.product,policyVersion:'treeforce89-20000-tree-v1',network:P.network,chainIdentifier:'35834a8a',decimals:6,coinType:P.coinType,recipient:P.recipient,requiredRaw:P.amountRaw,quantity:1,restoreLives:3,orderId:crypto.randomUUID(),accountId:crypto.randomUUID(),runId:crypto.randomUUID(),payer,paymentMethod:'tree-transfer-v1',flightHash:'a'.repeat(64),issuedAtMs:now,expiresAtMs:now+900000};
 const stable=v=>v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}':JSON.stringify(v);
 terms.quoteHash=createHash('sha256').update(stable(terms)).digest('hex');
