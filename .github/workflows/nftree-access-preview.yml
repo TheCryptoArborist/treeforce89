@@ -1,0 +1,33 @@
+name: NFTree access preview build
+on:
+  push:
+    branches: [feature/nftree-tree-continue-mvp]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Sui wallet dependencies and update lockfile
+        run: npm install --save-exact @mysten/dapp-kit-react @mysten/sui @tanstack/react-query
+      - name: Test NFTree ownership and gate
+        run: node --test app/game/nftree-access.test.mjs app/game/nftree-gate.test.mjs
+      - name: Build preview
+        run: npm run build
+      - name: Commit dependency lockfile on successful build
+        run: |
+          if ! git diff --quiet -- package.json package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package.json package-lock.json
+            git commit -m "build: lock Sui wallet dependencies after verified build"
+            git push
+          fi
