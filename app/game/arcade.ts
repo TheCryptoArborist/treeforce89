@@ -1,3 +1,4 @@
+import { getNFTreeGate } from "./nftree-gate.mjs";
 import * as Phaser from "phaser";
 import {E} from "./events";import {enemyConfig,GAME_VERSION,H,palette,stages,tuning,W,waves,weaponLevels} from "./config";import {SeededRng} from "./rng";
 
@@ -30,7 +31,8 @@ class TitleScene extends Phaser.Scene{
   this.add.rectangle(240,552,360,48,ph.panel,.9).setStrokeStyle(1,ph.gold,.8);this.add.text(240,541,"3 LIVES  //  10 WAVES  //  FINAL BOSS",font(10,pc.text)).setOrigin(.5);this.add.text(240,561,"CLEAR THE CANOPY. DEFEND THE GROVE.",font(9,pc.muted)).setOrigin(.5);
   const start=this.add.text(240,622,this.sys.game.device.input.touch?"TAP TO START":"PRESS START  •  SPACE / ENTER",font(15,pc.gold)).setOrigin(.5).setDepth(6);this.tweens.add({targets:start,alpha:.28,duration:500,yoyo:true,repeat:-1});
   this.add.text(240,666,"© 1989 TREE FORCE LABS  •  1 PLAYER",font(8,"#5c7b8b")).setOrigin(.5);
-  let starting=false;const begin=()=>{if(starting)return;starting=true;startMusic();this.scene.start("game")};this.input.once("pointerdown",begin);this.input.keyboard?.once("keydown-SPACE",begin);this.input.keyboard?.once("keydown-ENTER",begin);this.time.addEvent({delay:120,loop:true,callback:()=>{const pad=typeof navigator!=="undefined"?Array.from(navigator.getGamepads?.()||[]).find((p):p is Gamepad=>!!p):undefined;if(pad&&(pad.buttons[9]?.pressed||pad.buttons[0]?.pressed))begin()}});
+  const gateNotice=this.add.text(240,603,"NFTREE ACCESS REQUIRED",font(10,pc.gold)).setOrigin(.5).setDepth(8);
+  let starting=false;const begin=()=>{if(starting)return;if(!getNFTreeGate().eligible){gateNotice.setText("CONNECT WALLET + HOLD NFTREE TO PLAY");return;}starting=true;startMusic();this.scene.start("game")};this.input.once("pointerdown",begin);this.input.keyboard?.once("keydown-SPACE",begin);this.input.keyboard?.once("keydown-ENTER",begin);this.time.addEvent({delay:120,loop:true,callback:()=>{const pad=typeof navigator!=="undefined"?Array.from(navigator.getGamepads?.()||[]).find((p):p is Gamepad=>!!p):undefined;if(pad&&(pad.buttons[9]?.pressed||pad.buttons[0]?.pressed))begin()}});
  }
 }
 
