@@ -18,9 +18,7 @@ export async function hasNFTree({ core, address, maxPages = 100 }) {
     if (!result || !Array.isArray(result.objects)) throw new Error('invalid-sui-response');
     // Type filtering is requested server-side; check it again when the API supplies it.
     if (result.objects.some(o => o && (o.type === NFTREE_TYPE || o.objectType === NFTREE_TYPE || o.object?.type === NFTREE_TYPE))) return true;
-    // The core API's type filter is authoritative for returned owned objects.
-    // An empty page is not proof of no ownership if a next cursor exists.
-    if (result.objects.length && result.objects.every(o => o && !('type' in o) && !('objectType' in o) && !('object' in o))) return true;
+    // Fail closed when the response omits the object type; do not infer eligibility from a filter alone.
     if (result.cursor == null) return false;
     if (typeof result.cursor !== 'string' || visited.has(result.cursor)) throw new Error('invalid-pagination');
     visited.add(result.cursor);
