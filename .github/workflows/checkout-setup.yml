@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: TheCryptoArborist/tree-token.xyz
-          ref: 23e033e1658b70e0f9757ba40f039ba56c1148c4
+          ref: 614b817a92235f0176d2e88c0e0cfda967be6752
           path: backend
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
