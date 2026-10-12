@@ -1,8 +1,8 @@
-name: Paused checkout wallet setup checks
+name: Standard TREE transfer preview checks
 on:
   push:
     branches: [preview/flight-recovery]
-    paths: ['app/CheckoutSetup.tsx', 'app/checkout-setup.css', 'app/game/tree-payments/checkout-*', 'src/main.tsx', 'vite.config.ts', 'netlify.toml', 'tests/direct-tree-checkout-setup.test.mjs', 'scripts/checkout-setup-browser.mjs', '.github/workflows/checkout-setup.yml']
+    paths: ['app/game/tree-payments/**', 'app/game/tree-continue-ui.mjs', 'src/main.tsx', 'netlify.toml', 'tests/direct-tree-transfer.test.mjs', 'scripts/checkout-setup-browser.mjs', '.github/workflows/checkout-setup.yml']
 permissions:
   contents: read
 jobs:
@@ -13,6 +13,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: TheCryptoArborist/tree-token.xyz
+          ref: ee851b9dc7afd4331ffda5abb55d748811e2580e
+          path: backend
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
@@ -20,11 +26,12 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund
-      - name: Check actual bytecode, capability custody and failed receipt cases
-        run: node --test --test-reporter=spec tests/direct-tree-checkout-setup.test.mjs
-      - name: Dry-run mainnet publication with public admin address only
-        run: node app/game/tree-payments/checkout-mainnet-readiness.mjs
-      - name: Build game and wallet setup page
+          npm ci --prefix backend/services/canopy-credits/reader --ignore-scripts --no-audit --no-fund
+      - name: Check standard transfer and fixed payment terms
+        run: node --test --test-reporter=spec tests/direct-tree-transfer.test.mjs
+      - name: Dry-run standard TREE transfer with the approved public pilot address
+        run: node app/game/tree-payments/transfer-mainnet-readiness.mjs
+      - name: Build the game
         run: npm run build
       - name: Install test-only browser
         run: |
@@ -44,5 +51,5 @@ jobs:
           }
           throw Error('Preview did not deploy this commit.');
           JS
-      - name: Check hosted setup page on mobile and desktop
+      - name: Check game and retired setup route on mobile and desktop
         run: node scripts/checkout-setup-browser.mjs

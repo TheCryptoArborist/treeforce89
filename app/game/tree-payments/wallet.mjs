@@ -4,7 +4,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
 import { TREE_CONTINUE as P, requireContinue as need, sameAddress, validateOrder } from '../tree-continue-policy.mjs';
 
-export const APPROVED_DEPLOYMENT = null;
+export const APPROVED_DEPLOYMENT = Object.freeze({network: P.network, paymentMethod: 'tree-transfer-v1'});
 const Quote = bcs.struct('Quote', {
   domain: bcs.vector(bcs.u8()), checkout_id: bcs.Address, key_epoch: bcs.u64(),
   order_id: bcs.vector(bcs.u8()), account_id: bcs.vector(bcs.u8()), payer: bcs.Address,
@@ -20,7 +20,7 @@ function base64(text, maximum) {
   const raw = atob(text); need(raw.length <= maximum && btoa(raw) === text, 'noncanonical-quote');
   return Uint8Array.from(raw, v => v.charCodeAt(0));
 }
-export async function paymentTransaction(order, deployment, now = Date.now()) {
+async function contractPaymentTransaction(order, deployment, now = Date.now()) {
   const o = structuredClone(order), d = deployment && structuredClone(deployment);
   need(d?.network === P.network && /^0x[a-f0-9]{64}$/.test(d.packageId || '') &&
     /^0x[a-f0-9]{64}$/.test(d.checkoutId || '') && /^[a-f0-9]{64}$/.test(d.quotePublicKey || '') &&
@@ -58,10 +58,34 @@ export async function paymentTransaction(order, deployment, now = Date.now()) {
   ] });
   return tx;
 }
-export function createPaymentWallet({ deployment = APPROVED_DEPLOYMENT, kit, selectWallet } = {}) {
+export async function paymentTransaction(order, deployment=APPROVED_DEPLOYMENT, now=Date.now()) {
+  if(order?.terms?.paymentMethod!=='tree-transfer-v1')return contractPaymentTransaction(order,deployment,now);
+  const o=structuredClone(order),t=o.terms;
+  need(deployment?.paymentMethod==='tree-transfer-v1'&&deployment.network===P.network,'checkout-not-enabled');
+  validateOrder(o,o.runId,o.accountId,o.payer);need(o.payable===true,'checkout-not-enabled');
+  need(t.kind==='direct-continue'&&t.orderId===o.orderId&&t.runId===o.runId&&t.accountId===o.accountId&&
+    sameAddress(t.payer,o.payer)&&t.product===P.product&&t.policyVersion==='treeforce89-20000-tree-v1'&&
+    t.network===P.network&&t.chainIdentifier==='35834a8a'&&t.coinType===P.coinType&&t.recipient===P.recipient&&
+    t.requiredRaw===P.amountRaw&&t.decimals===6&&t.quantity===1&&t.restoreLives===3&&/^[a-f0-9]{64}$/.test(t.flightHash||''), 'wrong-checkout-terms');
+  const fields=['kind','product','policyVersion','network','chainIdentifier','decimals','coinType','recipient','requiredRaw','quantity','restoreLives','orderId','accountId','runId','payer','paymentMethod','flightHash','issuedAtMs','expiresAtMs','quoteHash'];
+  need(Object.keys(t).length===fields.length&&Object.keys(t).every(k=>fields.includes(k)),'wrong-checkout-terms');
+  const {quoteHash,...committed}=t;
+  const calculated=hex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(committed)))));
+  need(calculated===quoteHash,'order-commitment-mismatch');
+  need(Number.isSafeInteger(now)&&Number.isSafeInteger(t.issuedAtMs)&&Number.isSafeInteger(t.expiresAtMs)&&
+    now>=t.issuedAtMs&&t.expiresAtMs-t.issuedAtMs===900000,'quote-expired');
+  const tx=new Transaction();tx.setSender(o.payer);
+  // An ordinary standard-library string binds the wallet-signed transfer to its
+  // saved-flight order. It creates no object and requires no new Move package.
+  tx.moveCall({target:'0x1::string::utf8',arguments:[tx.pure.string('TREE_FORCE_CONTINUE_V1:'+quoteHash)]});
+  tx.transferObjects([tx.coin({balance:BigInt(P.amountRaw),type:P.coinType})],P.recipient);
+  return tx;
+}
+export function createPaymentWallet({ deployment = APPROVED_DEPLOYMENT, kit, selectWallet, connectTimeoutMs=45000 } = {}) {
   const d = deployment && Object.freeze({ ...deployment });
   const app = kit || createDAppKit({ networks: ['mainnet'], defaultNetwork: 'mainnet', autoConnect: false,
     createClient: () => new SuiGrpcClient({ network: 'mainnet', baseUrl: 'https://fullnode.mainnet.sui.io:443' }) });
+  let connecting=null;
   return {
     async connect(payer) {
       need(d, 'checkout-not-enabled');
@@ -69,7 +93,12 @@ export function createPaymentWallet({ deployment = APPROVED_DEPLOYMENT, kit, sel
       if (!current.account || !sameAddress(current.account.address, payer)) {
         const wallets = app.stores.$wallets.get(); need(wallets.length > 0, 'no-sui-wallet');
         const wallet = await selectWallet(wallets); need(wallet, 'wallet-not-selected');
-        await app.connectWallet({ wallet });
+        need(!connecting,'wallet-connection-pending');
+        const request=app.connectWallet({wallet});connecting=request;
+        const finished=()=>{if(connecting===request)connecting=null;};request.then(finished,finished);
+        let timer;
+        try{await Promise.race([request,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(Error('wallet-connection-timeout'),{code:'wallet-connection-timeout'})),connectTimeoutMs);})]);}
+        finally{clearTimeout(timer);}
       }
       need(sameAddress(app.stores.$connection.get().account?.address, payer), 'wrong-payer');
       need(app.stores.$currentNetwork.get() === 'mainnet', 'wrong-network');

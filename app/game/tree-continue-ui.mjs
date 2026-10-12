@@ -10,6 +10,8 @@ const explanations = {
   'checkout-not-enabled': 'TREE checkout is not live yet. No payment was requested. You can start a new game for free.',
   'sui-sign-in-required': 'Sign in with your Sui wallet before purchasing a continue.',
   'wrong-payer': 'Use the same Sui wallet as your signed-in TREE Account.',
+  'wallet-connection-timeout': 'Wallet connection did not finish. Check your wallet prompt. If Slush shows a security warning, choose Return to safety. No payment was requested.',
+  'wallet-connection-pending': 'Close the existing wallet connection prompt before trying again.',
   'account-changed': 'The account changed. Return to the original account to recover this purchase.',
   'payment-not-yet-verified': 'Payment is not confirmed yet. Check its status; do not pay again.',
   'delivery-review-required': 'This continue has an activation record and needs review. Do not pay again. Open RECOVER TREE PURCHASE to keep its order and flight details.',
@@ -81,7 +83,7 @@ export function installDirectTreeContinues(game, frame, { api: suppliedApi, wall
     loadPaused:(snapshot,binding)=>loader.loadPaused(snapshot,binding),
     identity: () => game.registry.get('treeAccountIdentity'), pending,
     report: s => { status.textContent = explanations[s.message] || s.message || ''; render(); },
-  }), { offer(o) { offer = o; status.textContent = 'Choose whether to continue or start over. TREE checkout is pending activation.';
+  }), { offer(o) { offer = o; status.textContent = 'Continue for 20,000 TREE or start a new game for free.';
       render(); if (!dialog.open) dialog.showModal(); free.focus(); },
     close() { if (dialog.open) dialog.close(); offer = null; },
   });

@@ -22,8 +22,8 @@ function fixture(){
  quoteBase64:Buffer.from(bytes).toString('base64'),signatureBase64:sign(null,bytes,privateKey).toString('base64')};
  return {o,d,now};
 }
-test('deployment stays unset and no real transaction can be prepared by default',async()=>{
- const f=fixture();assert.equal(APPROVED_DEPLOYMENT,null);await assert.rejects(paymentTransaction(f.o,null,f.now),/checkout-not-enabled/);
+test('standard transfer default cannot prepare an obsolete contract checkout',async()=>{
+ const f=fixture();assert.equal(APPROVED_DEPLOYMENT.paymentMethod,'tree-transfer-v1');await assert.rejects(paymentTransaction(f.o,null,f.now),/checkout-not-enabled/);
 });
 test('actual SDK prepares fixed TREE Transaction without fetch, building bytes, or gas selection',async()=>{
  const f=fixture(),old=globalThis.fetch;globalThis.fetch=()=>{throw Error('Network forbidden');};

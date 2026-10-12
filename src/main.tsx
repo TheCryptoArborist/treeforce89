@@ -1,8 +1,7 @@
-import { StrictMode, Suspense, lazy } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import CanopyGame from "../app/CanopyGame";
 import "../app/globals.css";
-const CheckoutSetup = lazy(() => import('../app/CheckoutSetup'));
 
 function App() {
   return (
@@ -24,11 +23,11 @@ function App() {
           <span>SHIELD SPACE · PAUSE ESC</span>
         </footer>
       </section>
-      <p className="build-label">PREVIEW · TREE CONTINUES · SIMULATION ONLY</p>
+      <p className="build-label">PREVIEW · TREE CONTINUES</p>
     </main>
   );
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>{location.pathname.replace(/\/$/, '') === '/checkout-setup' ? <Suspense fallback={<p>Loading checkout setup…</p>}><CheckoutSetup /></Suspense> : <App />}</StrictMode>,
+  <StrictMode><App /></StrictMode>,
 );
