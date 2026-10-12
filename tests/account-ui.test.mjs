@@ -13,6 +13,23 @@ test('Wallet Standard providers are discovered before or after app startup and d
 test('unsupported wallets and malformed announcements are ignored',()=>{const win=winFixture(),d=discoverAccountWallets(win);win.dispatchEvent(new CustomEvent('wallet-standard:register-wallet',{detail:()=>{throw Error()}}));win.dispatchEvent(new CustomEvent('wallet-standard:register-wallet',{detail:api=>api.register({name:'unsupported',features:{}})}));assert.equal(d.list('sui').length,0);d.destroy()});
 test('EIP-6963 discovers multiple providers, including late announcements',()=>{const win=winFixture(),d=discoverAccountWallets(win),p1={request(){}},p2={request(){}};for(const p of [p1,p1,p2])win.dispatchEvent(new CustomEvent('eip6963:announceProvider',{detail:{info:{name:'EVM'},provider:p}}));assert.equal(d.list('evm').length,2);d.destroy()});
 test('Sui signs exact message bytes with selected Mainnet account and no transaction',async()=>{const f=suiFixture(),c=await connectAccountWallet({family:'sui',provider:f.wallet});assert.equal(await signAccountMessage(c,f.account,'TREE sign in'),'signed');assert.equal(new TextDecoder().decode(f.calls[0].message),'TREE sign in');assert.equal(f.calls[0].chain,'sui:mainnet');assert.equal(f.calls[0].account,f.account)});
+test('blocked Sui connection times out without signing or opening duplicate wallet prompts',async()=>{
+ const f=suiFixture();let resolve,connections=0;
+ f.wallet.features['standard:connect'].connect=()=>{connections++;return new Promise(r=>resolve=r);};
+ const row={family:'sui',provider:f.wallet};
+ await assert.rejects(connectAccountWallet(row,97,{timeoutMs:5}),/Sign-in is blocked/);
+ await assert.rejects(connectAccountWallet(row,97,{timeoutMs:5}),/existing wallet prompt/);
+ assert.equal(connections,1);assert.equal(f.calls.length,0);
+ resolve({accounts:[f.account]});await new Promise(r=>setImmediate(r));
+ assert.equal(f.calls.length,0); // Late wallet approval cannot initiate sign-in.
+ f.wallet.features['standard:connect'].connect=async()=>({accounts:[f.account]});
+ assert.equal((await connectAccountWallet(row)).accounts[0],f.account);
+});
+test('wallet security rejection is preserved without requesting a message signature',async()=>{
+ const f=suiFixture();f.wallet.features['standard:connect'].connect=async()=>{throw new Error('Malicious website');};
+ await assert.rejects(connectAccountWallet({family:'sui',provider:f.wallet}),/Malicious website/);
+ assert.equal(f.calls.length,0);
+});
 test('Sui account change detected before or after wallet signature',async()=>{const f=suiFixture(),c=await connectAccountWallet({family:'sui',provider:f.wallet});f.wallet.accounts=[];await assert.rejects(signAccountMessage(c,f.account,'Sign'),/changed/);assert.equal(f.calls.length,0)});
 test('wallet listeners unsubscribe cleanly',async()=>{const f=suiFixture(),c=await connectAccountWallet({family:'sui',provider:f.wallet});let changed=0;const off=watchAccountWallet(c,()=>changed++);f.events.emit('change',{accounts:[]});off();f.events.emit('change',{accounts:[]});assert.equal(changed,1)});
 test('EVM signs via personal_sign and never invokes transactions or token approvals',async()=>{let chain=97;const address='0x'+'2'.repeat(40),calls=[];const p={request:async q=>{calls.push(q);if(q.method==='eth_requestAccounts'||q.method==='eth_accounts')return[address];if(q.method==='eth_chainId')return '0x'+chain.toString(16);if(q.method==='wallet_switchEthereumChain'){chain=Number(q.params[0].chainId);return;}if(q.method==='personal_sign')return'signed';throw Error('Forbidden method '+q.method)}};const c=await connectAccountWallet({family:'evm',provider:p},46630);await signAccountMessage(c,c.accounts[0],'Sign');assert.equal(chain,46630);assert.equal(calls.at(-3).method,'personal_sign');assert.ok(calls.every(c=>!c.method.includes('send')&&!c.method.includes('Transaction')))});

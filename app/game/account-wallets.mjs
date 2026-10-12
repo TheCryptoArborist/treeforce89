@@ -3,6 +3,7 @@
  */
 const suiAccount = a => typeof a?.address === 'string' && /^0x[0-9a-f]{1,64}$/i.test(a.address) && a.chains?.includes('sui:mainnet');
 const normalize = a => `0x${a.slice(2).toLowerCase().padStart(64, '0')}`;
+const pendingSuiConnections = new WeakMap();
 export const EVM_NETWORKS = Object.freeze({
   97: { chainId: '0x61', chainName: 'BNB Smart Chain Testnet', rpcUrls: ['https://bsc-testnet-dataseed.bnbchain.org'], nativeCurrency: { name: 'Testnet BNB', symbol: 'tBNB', decimals: 18 }, blockExplorerUrls: ['https://testnet.bscscan.com'] },
   46630: { chainId: '0xb626', chainName: 'Robinhood Chain Testnet', rpcUrls: ['https://rpc.testnet.chain.robinhood.com'], nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, blockExplorerUrls: ['https://explorer.testnet.chain.robinhood.com'] },
@@ -38,10 +39,20 @@ export function discoverAccountWallets(win = window) {
     destroy() { disposed = true; observers.clear(); win.removeEventListener('wallet-standard:register-wallet', standard); win.removeEventListener('eip6963:announceProvider', evm); },
   };
 }
-export async function connectAccountWallet(row, chainId = 97) {
+export async function connectAccountWallet(row, chainId = 97, { timeoutMs = 45000 } = {}) {
   const p = row.provider;
   if (row.family === 'sui') {
-    const result = await p.features['standard:connect'].connect();
+    if (pendingSuiConnections.has(p)) throw new Error('Close the existing wallet prompt before connecting again. No sign-in message or payment was requested.');
+    const request = Promise.resolve().then(() => p.features['standard:connect'].connect());
+    pendingSuiConnections.set(p, request);
+    const settled = () => { if (pendingSuiConnections.get(p) === request) pendingSuiConnections.delete(p); };
+    request.then(settled, settled);
+    let timer, result;
+    try {
+      result = await Promise.race([request, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Wallet connection did not finish. If the wallet shows “Malicious website”, choose Return to safety. Sign-in is blocked; no message signature or payment was requested. You can cancel and return to your flight.')), timeoutMs);
+      })]);
+    } finally { clearTimeout(timer); }
     const accounts = (result.accounts || []).filter(suiAccount);
     if (!accounts.length) throw new Error('This wallet did not return a Sui Mainnet account.');
     return { ...row, accounts, chainId: 'sui:mainnet' };
