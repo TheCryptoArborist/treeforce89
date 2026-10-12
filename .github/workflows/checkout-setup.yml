@@ -1,0 +1,48 @@
+name: Paused checkout wallet setup checks
+on:
+  push:
+    branches: [preview/flight-recovery]
+    paths: ['app/CheckoutSetup.tsx', 'app/checkout-setup.css', 'app/game/tree-payments/checkout-*', 'src/main.tsx', 'vite.config.ts', 'netlify.toml', 'tests/direct-tree-checkout-setup.test.mjs', 'scripts/checkout-setup-browser.mjs', '.github/workflows/checkout-setup.yml']
+permissions:
+  contents: read
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install locked game and SDK
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund
+      - name: Check actual bytecode, capability custody and failed receipt cases
+        run: node --test --test-reporter=spec tests/direct-tree-checkout-setup.test.mjs
+      - name: Dry-run mainnet publication with public admin address only
+        run: node app/game/tree-payments/checkout-mainnet-readiness.mjs
+      - name: Build game and wallet setup page
+        run: npm run build
+      - name: Install test-only browser
+        run: |
+          mkdir -p "$RUNNER_TEMP/setup-browser"
+          printf '{"private":true}' > "$RUNNER_TEMP/setup-browser/package.json"
+          npm install --prefix "$RUNNER_TEMP/setup-browser" --ignore-scripts --no-audit --no-fund --save-exact playwright@1.55.0
+          node "$RUNNER_TEMP/setup-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "PLAYWRIGHT_TEST_PACKAGE=$RUNNER_TEMP/setup-browser/package.json" >> "$GITHUB_ENV"
+      - name: Wait for this exact game preview commit
+        run: |
+          node --input-type=module <<'JS'
+          const deadline = Date.now() + 360000;
+          while (Date.now() < deadline) {
+            const r = await fetch('https://deploy-preview-3--treeforce89.netlify.app/setup-version.json', {cache: 'no-store'});
+            if (r.ok && (await r.json()).gameCommit === process.env.GITHUB_SHA) process.exit(0);
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+          throw Error('Preview did not deploy this commit.');
+          JS
+      - name: Check hosted setup page on mobile and desktop
+        run: node scripts/checkout-setup-browser.mjs

@@ -9,6 +9,17 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+[[redirects]]
+  from = "/checkout-setup"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/checkout-setup"
+  [headers.values]
+    Cache-Control = "no-store"
+    Referrer-Policy = "no-referrer"
+
 [[headers]]
   for = "/*"
   [headers.values]
