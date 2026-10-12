@@ -18,6 +18,7 @@ export function createInlineProxy({ authOrigin, gameOrigin, fetcher = fetch, now
       let b; try { b = JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { return json({ error: 'invalid-json' }, 400); }
       const allowed = { challenge: ['family', 'address', 'chainId'], verify: ['signature'], cancel: [] };
       if (!b || !Object.hasOwn(allowed, b.action) || Object.keys(b).some(k => !['action', ...allowed[b.action]].includes(k))) return json({ error: 'invalid-command' }, 400);
+      if (b.action === 'challenge' && (b.family !== 'sui' || b.chainId !== 'sui:mainnet')) return json({ error: 'sui-sign-in-required' }, 400);
       let flow; try { flow = JSON.parse(Buffer.from(cookie(request, FLOW), 'base64url').toString()); } catch {}
       async function upstream(fields) {
         const r = await fetcher(`${authOrigin}/api/tree-account-inline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...fields, clientOrigin: gameOrigin }), redirect: 'error', signal: AbortSignal.timeout(18000) });

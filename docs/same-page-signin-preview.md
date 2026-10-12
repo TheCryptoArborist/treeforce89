@@ -1,6 +1,6 @@
 # Same-page TREE Account sign-in — preview only
 
-The SIGN IN button now opens an accessible dialog over the game. It contains Sui/EVM choices, detected wallets, account selection, and an explicit message-signing step. There is no TREE popup, iframe, page redirect, or game reload. The user's wallet still opens its own permission/signature UI. The two EVM choices remain BNB and Robinhood testnets; Sui is Mainnet authentication only.
+The SIGN IN button now opens an accessible dialog over the game. It contains detected Sui wallets, account selection, and an explicit message-signing step. There is no TREE popup, iframe, page redirect, or game reload. The user's wallet still opens its own permission/signature UI. This release supports Sui Mainnet only. EVM discovery, connection, message signing, chain selection and the wallet-family buttons have been removed from the game. The game proxy rejects non-Sui and non-Mainnet challenges and does not accept EVM sessions. Shared account-service support for other applications is unchanged.
 
 ## Flight preservation
 
@@ -16,14 +16,16 @@ Legacy popup/callback routes remain for old open tabs, but the new UI never invo
 
 ## Validation
 
+The original multi-chain preview checks below are historical. The Sui-only change replaces the EVM wallet checks with assertions that provider discovery/access never runs, refuses EVM or Sui testnet challenges before upstream calls, and refuses EVM session responses and legacy callbacks. The existing Sui signature, timeout, account-change, pause and payment tests remain. The compiled-game browser workflow also checks Sui-only sign-in at 320, 390 and 1200 pixels. Live Slush website classification remains unresolved; this simplification is not evidence that the security warning has cleared.
+
 35 new local Node checks passed: 14 central service tests, 8 game-proxy tests and 13 wallet/pause checks. Signature/upstream/storage/Phaser dependencies were mocked where needed; central account tests reuse the existing service logic. The new tests run in the paired preview builds alongside the existing test gates, including the central SDK signature checks.
 
 The authored UI, wallet and pause modules were exercised in an in-memory Chromium harness at 1200x900, 390x844 and 320x700. All 21 scenario/viewport checks passed: open/cancel, Sui success, delayed response after cancel, signature rejection, account changes, EVM sign-in, and nested credit-panel preservation/balance refresh. No uncaught page errors, extra browser pages, or horizontal overflow were observed. Wallets, API responses and Phaser interfaces were simulated. Outbound navigation was blocked by runtime policy; no installed-wallet or full deployed Phaser acceptance is claimed.
 
 ## Acceptance
 
-Use https://deploy-preview-1--treeforce89.netlify.app/ . Finish any active flight before refreshing once to load the update. Do not clear site data or load more test credits for this check.
+Use https://deploy-preview-3--treeforce89.netlify.app/ . Finish any active flight before refreshing once to load the update. Do not clear site data or load more test credits for this check.
 
-When signed in already, note the balance and select SIGN OUT. Start a guest flight, then open SIGN IN: the game should pause with the panel on the same page. Choose Sui, CONNECT WALLET, the same account used before, and SIGN IN WITH SUI. Approve only the personal message in the wallet. The panel should close and the same flight should resume with its wave, score, lives and remaining test balance preserved. Repeat with Cancel before signing. Check that an already-paused continue screen stays paused after sign-in is dismissed.
+When signed in already, note the balance and select SIGN OUT. Start a guest flight, then open SIGN IN: the game should pause with the panel on the same page. Choose your Sui wallet, CONNECT WALLET, the same account used before, and SIGN IN WITH SUI. Approve only the personal message in the wallet. The panel should close and the same flight should resume with its wave, score, lives and remaining test balance preserved. Repeat with Cancel before signing. Check that an already-paused continue screen stays paused after sign-in is dismissed.
 
 Live wallet/device acceptance and the larger continue-system acceptance checklist remain outstanding. Real TREE purchases are not enabled by this change.

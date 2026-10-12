@@ -23,6 +23,7 @@ const server=createServer(async(req,res)=>{
  const url=new URL(req.url,'http://127.0.0.1');const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('fixture='))?.slice(8);
  let response;
  if(url.pathname==='/api/tree-account')response=Response.json({status:'ok',configured:true,identity:identities.get(token)||null});
+ else if(url.pathname==='/api/tree-account-inline')response=Response.json({status:'ok'}); // Modal cancellation only; no authentication is fabricated.
  else if(url.pathname==='/api/tree-continue'){paymentCalls++;response=Response.json({error:'checkout-not-enabled'},{status:503});}
  else if(url.pathname==='/api/tree-flight'){
   const chunks=[];for await(const c of req)chunks.push(c);
@@ -47,6 +48,37 @@ async function pageFor(token,wave=0,viewport={width:1200,height:1000}){
 }
 async function inputDiagnostic(page){return page.evaluate(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return{paused:s.paused,sceneActive:g.scene.isActive('game'),physicsPaused:s.physics.world.isPaused,inputEnabled:s.input.enabled,keyboardEnabled:s.input.keyboard.enabled,globalKeyboard:g.input.keyboard.enabled,keyDown:s.input.keyboard.keys[65]?.isDown,x:s.player.x,velocity:s.player.body.velocity.x,lives:s.lives,focus:document.activeElement?.tagName,openDialogs:document.querySelectorAll('dialog[open]').length};});}
 try{
+ for(const width of [320,390,1200]){
+  const context=await browser.newContext({viewport:{width,height:900}});
+  await context.addInitScript(()=>{
+   window.__suiOnlyWalletCalls={connect:0,sign:0,evmDiscovery:0,evmAccess:0};
+   const calls=window.__suiOnlyWalletCalls,account={address:'0x'+'1'.repeat(64),chains:['sui:mainnet']};
+   const wallet={name:'Sui test fixture',chains:['sui:mainnet'],accounts:[account],features:{
+    'standard:connect':{connect:async()=>{calls.connect++;return{accounts:[account]}}},
+    'sui:signPersonalMessage':{signPersonalMessage:async()=>{calls.sign++;throw Error('No signature expected in modal check')}}
+   }};
+   window.addEventListener('wallet-standard:app-ready',e=>e.detail.register(wallet));
+   window.addEventListener('eip6963:requestProvider',()=>calls.evmDiscovery++);
+   Object.defineProperty(window,'ethereum',{get(){calls.evmAccess++;throw Error('EVM provider must not be accessed')}});
+  });
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:4173/?recoveryTest=1');
+  await page.waitForFunction(()=>window.__treeRecoveryTestGame?.scene.isActive('title'),{},{timeout:20000});
+  await page.getByRole('button',{name:'SIGN IN',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'SIGN IN TO TREE'});
+  await dialog.waitFor({state:'visible'});
+  assert.equal(await dialog.getByRole('button',{name:'EVM',exact:true}).count(),0);
+  assert.equal(await dialog.locator('#inline-network').count(),0);
+  assert.equal(await dialog.getByRole('combobox').first().inputValue(),'sui-1');
+  await dialog.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
+  await dialog.getByRole('button',{name:'SIGN IN WITH SUI',exact:true}).waitFor({state:'visible'});
+  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:1,sign:0,evmDiscovery:0,evmAccess:0});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+  await page.screenshot({path:`recovery-evidence/sui-only-sign-in-${width}.png`,fullPage:true});
+  await dialog.getByRole('button',{name:'CANCEL & RETURN TO GAME',exact:true}).click();
+  await dialog.waitFor({state:'hidden'});
+  await context.close();console.log('PASS Sui-only modal at width',width);
+ }
  for(const wave of [1,2,3,4,5,6,7,8,9,10]){
   const token=randomBytes(32).toString('hex'),accountId=randomUUID(),payer='0x'+randomBytes(32).toString('hex');
   identities.set(token,{authenticated:true,environment:'preview',accountId,wallet:{family:'sui',address:payer},expiresAt:Date.now()+1800000});

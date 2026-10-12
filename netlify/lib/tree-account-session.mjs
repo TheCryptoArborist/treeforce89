@@ -10,7 +10,7 @@ function reply(body, status = 200, cookies = [], location) {
 const goodOrigin = v => { try { const u = new URL(v); return u.protocol === 'https:' && u.origin === v; } catch { return false; } };
 export function validIdentity(i) {
   return i?.authenticated === true && i.environment === 'preview' && /^[a-f0-9-]{36}$/.test(i.accountId || '') &&
-    ['sui','evm'].includes(i.wallet?.family) && /^0x[a-fA-F0-9]{40,64}$/.test(i.wallet?.address || '') && Number.isSafeInteger(i.expiresAt);
+    i.wallet?.family === 'sui' && /^0x[a-fA-F0-9]{64}$/.test(i.wallet?.address || '') && Number.isSafeInteger(i.expiresAt);
 }
 /** BFF: browser cookies stay on the game origin, opaque tokens stay out of JS. */
 export function createGameSessionHandler({ authOrigin, gameOrigin, fetcher = fetch, now = Date.now }) {
@@ -38,6 +38,7 @@ export function createGameSessionHandler({ authOrigin, gameOrigin, fetcher = fet
         const token = cookie(request, SESSION); if (!token) return reply({ identity: null, configured: true });
         try {
           const result = await upstream({ action: 'game-session', token });
+          if (result.identity?.wallet?.family !== 'sui') return reply({ identity: null, configured: true }, 200, [setCookie(SESSION, '', 0)]);
           if (!validIdentity(result.identity) || result.identity.expiresAt <= now()) throw new Error('invalid-session');
           return reply({ identity: result.identity, configured: true });
         } catch (e) {
