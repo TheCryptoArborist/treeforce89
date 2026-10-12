@@ -22,6 +22,8 @@ export function wireDirectContinueGame(game,makeAttempt,ui){
    if(!f||cleared||f.used||this.lives>0){if(f){f.ended=true;if(f.offered){ui.close();unlock(f);}}return original.endRun.call(this,cleared);}
    if(f.offered||f.ended)return;
    f.offered=true;f.keyboard=s.input.keyboard?.enabled;f.input=s.input.enabled;
+   // The continue offer is inline, so the paused battlefield must remain visible.
+   s.cameras?.main?.flashEffect?.reset();s.cameras?.main?.shakeEffect?.reset();
    s.clearTouchState();s.player.setVelocity(0,0);s.paused=true;s.physics.world.pause();s.input.enabled=false;if(s.input.keyboard)s.input.keyboard.enabled=false;game.scene.pause('game');
    function resume(){current(f);f.used=true;f.offered=false;ui.close();unlock(f);s.notice?.setVisible(false);s.banner('CONTINUED FLIGHT\nCASUAL SCORE ONLY','#f2d28a');}
    f.attempt=makeAttempt({clientRunId:f.id,prepare:()=>current(f),boundary:()=>{current(f);game.events.emit('arcade:continue-authorized');s.run.continued=true;},apply:lives=>{current(f);restoreArborwing(s,lives);},resume});

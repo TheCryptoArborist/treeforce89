@@ -142,6 +142,7 @@ try{
   },{score,wave});
   await page.waitForFunction(()=>document.querySelector('.flight-recovery-box button')?.textContent==='SAVED — SAFE TO RELOAD FOR TEST',{},{timeout:15000}).catch(async e=>{throw Error(e.message+' '+await page.locator('.flight-recovery-box').innerText())});
   assert.equal(await page.locator('.tree-continue-panel').isVisible(),true);
+  assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.scene.getScene('game').cameras.main.flashEffect.isRunning),false);
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await page.getByRole('button',{name:'CONTINUE — 20,000 TREE',exact:true}).count(),1);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
