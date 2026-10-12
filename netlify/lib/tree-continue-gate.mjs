@@ -1,20 +1,20 @@
 import { TREE_CONTINUE as product } from '../../app/game/tree-continue-policy.mjs';
 import { createContinueProxy } from './tree-continue-proxy.mjs';
-/** This manifest enables READ-ONLY hosted diagnostics and purchase lookup only.
- * The upstream handler has no order signer, receipt writer or delivery authority.
- * Other origins, production, URL parameters and environment switches remain closed.
+/** Protected standard server runtime for the existing recovery preview.
+ * The hosted service has no active checkout deployment or quote signer, and
+ * the database policy keeps new payments disabled. Other origins stay closed.
  */
-export const READONLY_CONTINUE_PREVIEW = Object.freeze({
+export const HOSTED_CONTINUE_PREVIEW = Object.freeze({
   gameOrigin: 'https://deploy-preview-3--treeforce89.netlify.app',
-  serviceUrl: 'https://lehswszuekjqottolmsf.supabase.co/functions/v1/tree-continue-preview',
+  serviceUrl: 'https://lehswszuekjqottolmsf.supabase.co/functions/v1/tree-continue-standard',
 });
 export function directContinueGate(request) {
   const headers = { 'Cache-Control': 'no-store, private', 'X-Content-Type-Options': 'nosniff' };
   if (!['GET', 'POST'].includes(request.method)) return Response.json({ error: 'method-not-allowed' }, { status: 405, headers });
   if (request.method === 'POST' && request.headers.get('origin') !== new URL(request.url).origin)
     return Response.json({ error: 'origin-mismatch' }, { status: 403, headers });
-  if (new URL(request.url).origin === READONLY_CONTINUE_PREVIEW.gameOrigin) {
-    if (request.method === 'POST') return createContinueProxy(READONLY_CONTINUE_PREVIEW)(request);
+  if (new URL(request.url).origin === HOSTED_CONTINUE_PREVIEW.gameOrigin) {
+    if (request.method === 'POST') return createContinueProxy(HOSTED_CONTINUE_PREVIEW)(request);
     return Response.json({ mode: 'hosted-checkout-disabled', enabled: false, paymentsEnabled: false,
       restoreAuthorized: false, requiresPayment: false, product, deliveryProtocol: 'tree-paid-delivery.v1' }, { headers });
   }

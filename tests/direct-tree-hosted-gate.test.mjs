@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { directContinueGate, READONLY_CONTINUE_PREVIEW as P } from '../netlify/lib/tree-continue-gate.mjs';
+import { directContinueGate, HOSTED_CONTINUE_PREVIEW as P } from '../netlify/lib/tree-continue-gate.mjs';
 const request = (origin, command, cookie = '') => new Request(origin + '/api/tree-continue', {
  method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(command),
 });
@@ -19,7 +19,7 @@ test('preview requires session and same-origin before upstream', async () => {
  const r = request(P.gameOrigin, { action: 'status' }); r.headers.set('Origin', 'https://evil.example');
  assert.equal((await directContinueGate(r)).status, 403);
 });
-test('preview forwards the private cookie only to the pinned readonly service', async () => {
+test('preview forwards the private cookie only to the pinned standard service', async () => {
  const original = globalThis.fetch; let calls = 0;
  globalThis.fetch = async (url, options) => {
   calls++; assert.equal(url, P.serviceUrl); assert.equal(options.redirect, 'error');
