@@ -2,7 +2,9 @@
   "name": "tree-force-89",
   "version": "0.1.0",
   "private": true,
-  "engines": {"node": ">=22.13.0"},
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
     "dev": "vite",
@@ -12,7 +14,8 @@
     "test:campaign": "node --test tests/campaign-polish.test.mjs",
     "test:records": "node --test tests/records.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
+    "build:connection": "npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund && vite build --config vite.connection.config.ts"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

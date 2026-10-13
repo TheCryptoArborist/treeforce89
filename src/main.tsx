@@ -23,7 +23,7 @@ function App() {
           <span>SHIELD SPACE · PAUSE ESC</span>
         </footer>
       </section>
-      <p className="build-label">PREVIEW · NFTREE HOLDER ACCESS</p>
+      <p className="build-label">CORE GAME REBUILD · NO WALLET OR PAYMENTS</p>
     </main>
   );
 }
