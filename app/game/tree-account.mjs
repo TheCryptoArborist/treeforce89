@@ -108,7 +108,10 @@ export function installTreeAccount(game, frame) {
     if (operation) return operation;
     const row = registry.list('sui').find(w => w.id === walletSelect.value);
     if ((!configured && !connectionOnly) || !row || disposed) { note.textContent = 'Choose a Sui wallet above to connect.'; render(); return Promise.resolve(null); }
-    operation = Promise.race([runConnection(row, { connectionOnly }), new Promise(resolve => { cancelWait = () => resolve(null); })]).finally(() => { operation = null; cancelWait = null; render(); }); return operation;
+    operation = Promise.race([runConnection(row, { connectionOnly }), new Promise(resolve => { cancelWait = () => resolve(null); })]).finally(() => {
+      operation = null; cancelWait = null; render();
+      if (connectionOnly) void refresh();
+    }); return operation;
   }
   async function runConnection(row, { connectionOnly = false } = {}) {
     const token = ++epoch; ++revision; phase = 'connecting'; releasePause = holdGameForAccount(game);
