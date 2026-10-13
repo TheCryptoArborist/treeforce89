@@ -1,0 +1,60 @@
+name: Actual Phaser and PostgreSQL recovery
+on:
+  push:
+    branches: [preview/flight-recovery]
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env:
+          POSTGRES_DB: recovery_ci
+          POSTGRES_USER: recovery_ci
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U recovery_ci -d recovery_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGDATABASE: recovery_ci
+      PGUSER: recovery_ci
+      PGPASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: TheCryptoArborist/tree-token.xyz
+          ref: d7c2fed7f0cfa8da058285d91c91f753e9ab22cc
+          path: backend
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install locked game and test-only browser/database tooling
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund
+          mkdir -p "$RUNNER_TEMP/recovery-tools"
+          printf '{"private":true}' > "$RUNNER_TEMP/recovery-tools/package.json"
+          npm install --prefix "$RUNNER_TEMP/recovery-tools" --ignore-scripts --no-audit --no-fund --save-exact playwright@1.55.0 pg@8.16.3
+          node "$RUNNER_TEMP/recovery-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "RECOVERY_TEST_PACKAGE=$RUNNER_TEMP/recovery-tools/package.json" >> "$GITHUB_ENV"
+      - name: Existing direct payment, account and game regression tests
+        run: node --test --test-reporter=spec tests/direct-tree*.test.mjs tests/continue*.test.mjs tests/tree-account*.test.mjs tests/account-ui.test.mjs tests/capture-animation.test.mjs tests/boss-background.test.mjs tests/tyrant-combat.test.mjs
+      - name: Build actual game
+        run: npm run build
+      - name: Browser-close recovery across ten real Phaser waves and PostgreSQL
+        run: node tests/flight-recovery-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recovery-browser-evidence
+          path: recovery-evidence/
+          retention-days: 7

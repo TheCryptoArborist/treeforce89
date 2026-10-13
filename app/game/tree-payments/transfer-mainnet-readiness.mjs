@@ -1,0 +1,26 @@
+/** Public-address simulation and reads only. No signing or execution API. */
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {SuiGrpcClient} from '@mysten/sui/grpc';
+import {paymentTransaction} from './wallet.mjs';
+import {TREE_CONTINUE as P} from '../tree-continue-policy.mjs';
+import {connectMainnetReader} from '../../../backend/services/canopy-credits/reader/client.mjs';
+import {TRANSFER_DISCOVERY_QUERY} from '../../../backend/services/canopy-credits/receipt-discovery.mjs';
+const payer='0x18d72fc2a3df6d92d0806da3b04d92be056e2d6d35882a56c16ddb25f48d35d6';
+const reader=connectMainnetReader(),identity=await reader.getNetworkIdentity(),metadata=await reader.getTreeMetadata();
+assert.equal(identity.chainIdentifier,'35834a8a');assert.equal(metadata.decimals,6);
+const recent=await reader.getRecentTransactionDigests();const receipt=await reader.getFinalizedTransaction(recent.digests[0]);assert.equal(receipt.finalized,true);
+const query=await fetch('https://graphql.mainnet.sui.io/graphql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:TRANSFER_DISCOVERY_QUERY,variables:{payer,before:null,last:1}}),signal:AbortSignal.timeout(15000)});
+const data=await query.json();assert.ok(query.ok);assert.equal(data.errors,undefined,JSON.stringify(data.errors));assert.equal(data.data.chainIdentifier,identity.genesisDigest);assert.ok(Array.isArray(data.data.transactions.nodes));
+const now=Date.now(),terms={kind:'direct-continue',product:P.product,policyVersion:'treeforce89-20000-tree-v1',network:P.network,chainIdentifier:'35834a8a',decimals:6,coinType:P.coinType,recipient:P.recipient,requiredRaw:P.amountRaw,quantity:1,restoreLives:3,orderId:crypto.randomUUID(),accountId:crypto.randomUUID(),runId:crypto.randomUUID(),payer,paymentMethod:'tree-transfer-v1',flightHash:'a'.repeat(64),issuedAtMs:now,expiresAtMs:now+900000};
+const stable=v=>v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}':JSON.stringify(v);
+terms.quoteHash=createHash('sha256').update(stable(terms)).digest('hex');
+const order={...P,orderId:terms.orderId,accountId:terms.accountId,runId:terms.runId,payer,payable:true,terms};
+const client=new SuiGrpcClient({network:'mainnet',baseUrl:'https://fullnode.mainnet.sui.io:443'});
+const transaction=await paymentTransaction(order);
+const result=await client.core.simulateTransaction({transaction,doGasSelection:true,include:{effects:true,transaction:true,balanceChanges:true}});
+assert.equal(result.Transaction?.status.success,true,JSON.stringify(result.FailedTransaction?.status));
+const changes=result.Transaction.balanceChanges;
+assert.equal(changes.filter(b=>b.coinType===P.coinType&&b.address===P.recipient).reduce((n,b)=>n+BigInt(b.amount),0n),BigInt(P.amountRaw));
+assert.equal(changes.filter(b=>b.coinType===P.coinType&&b.address===payer).reduce((n,b)=>n+BigInt(b.amount),0n),-BigInt(P.amountRaw));
+console.log('TRANSFER_MAINNET_READINESS',JSON.stringify({network:'sui:mainnet',treeDecimals:metadata.decimals,transferRaw:P.amountRaw,simulationSuccess:true,checkpointReader:true,discoveryQuery:true,transactionsSigned:0,transactionsSubmitted:0}));

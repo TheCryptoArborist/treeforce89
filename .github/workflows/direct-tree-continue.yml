@@ -1,0 +1,26 @@
+name: Direct TREE continue integration
+on:
+  push:
+    branches: [feature/direct-tree-continues]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install locked isolated wallet dependencies
+        run: npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund
+      - name: Direct continue and existing game regressions
+        run: node --test --test-reporter=spec tests/direct-tree*.test.mjs tests/continue*.test.mjs tests/tree-account*.test.mjs tests/account-ui.test.mjs tests/capture-animation.test.mjs tests/boss-background.test.mjs tests/tyrant-combat.test.mjs
+      - name: Install existing app dependencies and compile actual game
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          git diff --exit-code -- package.json package-lock.json app/game/tree-payments/package.json app/game/tree-payments/package-lock.json
