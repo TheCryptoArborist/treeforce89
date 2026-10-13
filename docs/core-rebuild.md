@@ -12,7 +12,7 @@ Run `npm run build:connection` to produce a standalone official dApp Kit connect
 
 Before merging wallet integration into the game, a real installed Slush extension must accept a fresh manual connection at the intended permanent game URL, return a Sui Mainnet account, disconnect, and reconnect normally. Record the exact URL, extension version, result and Alert ID when present. Automated fixture tests cannot mark this checkpoint as passed. Keep wallet security checks intact.
 
-Current acceptance result: FAILED for `https://deploy-preview-3--treeforce89.netlify.app/wallet-baseline.html`. The user supplied a screenshot showing Slush's malicious-website verdict on the isolated official component. No game or commerce feature ran before that verdict. This experiment does not identify its cause, prove a false positive or establish that another URL will pass.
+Current acceptance result: FAILED for `https://deploy-preview-3--treeforce89.netlify.app/wallet-baseline.html`. The user supplied screenshots showing Slush's malicious-website verdict on the isolated official component in Brave and again in Chrome with a test wallet. No game or commerce feature ran before that verdict. This experiment does not identify its cause, prove a false positive or establish that another URL will pass.
 
 After connection passes, add read-only NFTree ownership, validate a real holder and non-holder, then integrate the preserved core game. Payments are a final, separately validated stage. A failure at any stage stops expansion of that stage while the gameplay branch can continue.
 

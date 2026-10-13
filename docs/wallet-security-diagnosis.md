@@ -27,4 +27,10 @@ Documentation: https://docs.gopluslabs.io/reference/phishingsiteusingget
 
 Further inspection found no named Blockaid, Blowfish or GoPlus integration in the relevant published extension connection flow. Its UI obtains the security result through Slush's own GraphQL API. This does not establish whether Slush has an undisclosed upstream provider.
 
-A remaining diagnostic dimension is browser/profile-specific reproducibility. All user-provided blocking observations come from the user's existing extension environment. A fresh browser profile with the official unmodified Slush extension and an empty, unfunded test wallet could check the exact same baseline URL with all security protections enabled. No seed import, payment, alternate hostname or warning bypass is needed. This test has not been performed. A different result would justify investigating profile, wallet-network and cache differences; the same result would strengthen reproducibility without exposing the detection rule.
+## Chrome test-wallet reproduction — 2026-10-13
+
+The user tested the same isolated official connector in Chrome using a newly identified test wallet. The supplied screenshot shows the official connection component waiting for approval and Slush displaying “Malicious website.” Connection did not return an account, so no NFT ownership query, personal-message signature or payment was reached.
+
+The earlier observations were in Brave with the original wallet environment. Reproduction in Chrome with the test wallet establishes that the failure is not confined to Brave or that original wallet. The screenshot alone does not verify complete isolation of every browser/profile setting, identify the detection rule, or prove a false positive. Do not request another identical browser-switch test.
+
+Connection acceptance remains FAILED. The current official connector, frontend cleanup, dependency audit and independent reputation result have not cleared Slush's verdict. A provider explanation or correction remains unavailable. No review has been submitted; no further application repair is supported by the current evidence.
