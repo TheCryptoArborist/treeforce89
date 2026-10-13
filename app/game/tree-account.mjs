@@ -6,7 +6,7 @@ const short = address => `${address.slice(0, 8)}…${address.slice(-6)}`;
 const valid = i => i?.authenticated === true && i.environment === 'preview' && i.wallet?.family === 'sui';
 const messages = { 'sign-in-expired': 'Verification expired. Connect again.', 'expired-or-used-proof': 'Verification expired. Connect again.', 'invalid-signature': 'Wallet verification failed. Connect again.', 'too-many-attempts': 'Wait five minutes before reconnecting.', 'authentication-unavailable': 'Wallet verification is unavailable. Your flight is unchanged.', 'preview-not-configured': 'Use the stable game preview address.' };
 
-/** A top-of-game wallet picker. Connection and ownership verification are one app action. */
+/** Wallet connection is separate from server-verified ownership for protected actions. */
 export function installTreeAccount(game, frame) {
   if (!frame) return () => {};
   let disposed = false, identity = null, configured = false, revision = 0, epoch = 0, phase = 'idle';
@@ -20,7 +20,7 @@ export function installTreeAccount(game, frame) {
   const accountSelect = make('select'); accountSelect.setAttribute('aria-label', 'Wallet account'); accountSelect.hidden = true;
   const connect = button('CONNECT WALLET', () => void connectWallet()), logout = button('DISCONNECT', () => void signOut()); logout.hidden = true;
   const cancel = button('CANCEL', cancelConnection); cancel.hidden = true;
-  const note = make('p', 'tree-wallet-status', 'Checking wallet sign-in…'); note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
+  const note = make('p', 'tree-wallet-status', 'Connect a Sui wallet. Free play needs no signature.'); note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
   controls.append(walletLabel, walletSelect, accountSelect, connect, logout, cancel); bar.append(label, controls, note);
   const checkMode = new URLSearchParams(window.location.search).get('walletCheck') === '1';
   const check = button('CHECK CONNECTION ONLY', () => void connectWallet({ connectionOnly: true }));
@@ -31,23 +31,31 @@ export function installTreeAccount(game, frame) {
   }
   frame.insertBefore(bar, frame.querySelector('.screen-bezel')); frame.classList.add('has-tree-account');
   game.registry.set('treeWalletKit', registry.app);
-  game.registry.set('treeAccountConnect', connectWallet);
+  // Only protected feature buttons call this; the top CONNECT WALLET never does.
+  game.registry.set('treeAccountConnect', async () => {
+    const result = await connectWallet({ verifyOwnership: true });
+    return valid(result) ? result : null;
+  });
   const alive = token => !disposed && token === epoch;
   const finalizing = () => phase === 'challenge' || phase === 'verifying' || phase === 'logout';
   function render() {
     if (disposed) return;
     const busy = phase !== 'idle';
-    label.textContent = identity ? `${connection?.name || 'SUI WALLET'} · ${short(identity.wallet.address)}` : 'SUI MAINNET';
-    walletSelect.hidden = walletLabel.hidden = !!identity;
+    const address = connection ? registry.app.stores.$connection.get().account?.address : identity?.wallet.address;
+    const connected = !!address;
+    label.textContent = connected ? `${connection?.name || 'SUI WALLET'} · ${short(address)}` : 'SUI MAINNET';
+    walletSelect.hidden = walletLabel.hidden = connected;
     walletSelect.disabled = busy; accountSelect.disabled = busy;
-    accountSelect.hidden = !identity || (connection?.accounts.length || 0) < 2;
-    connect.hidden = !!identity; connect.disabled = busy || !!operation || !configured || !walletSelect.value;
+    accountSelect.hidden = !connection || (connection?.accounts.length || 0) < 2;
+    connect.hidden = connected; connect.disabled = busy || !!operation || !walletSelect.value;
     connect.textContent = busy ? phase === 'connecting' ? 'CONNECTING…' : phase === 'signing' ? 'APPROVE IN WALLET…' : 'VERIFYING…' : 'CONNECT WALLET';
-    logout.hidden = !identity; logout.disabled = busy;
+    logout.hidden = !connected; logout.disabled = busy;
     cancel.hidden = phase === 'idle' || phase === 'logout'; cancel.disabled = finalizing();
-    check.disabled = busy || !!operation || !!identity || !walletSelect.value;
+    check.disabled = busy || !!operation || connected || !walletSelect.value;
   }
   function publish() {
+    // Connection is informational, never an authenticated identity or entitlement.
+    game.registry.set('treeWalletConnection', connection ? { name: connection.name, address: registry.app.stores.$connection.get().account?.address } : null);
     const previous = game.registry.get('treeAccountIdentity'); game.registry.set('treeAccountIdentity', identity);
     if (previous?.accountId !== identity?.accountId || previous?.wallet?.address !== identity?.wallet?.address || previous?.authenticated !== identity?.authenticated) game.events.emit('tree-account:identity', identity);
     render();
@@ -61,9 +69,10 @@ export function installTreeAccount(game, frame) {
     const serial = ++revision;
     try {
       const p = await api(); if (disposed || operation || serial !== revision) return;
-      identity = valid(p.identity) ? p.identity : null; configured = p.configured === true;
-      note.textContent = identity ? 'Wallet verified. Continues cost 20,000 TREE.' : 'Connect and approve a free verification message. Continues cost 20,000 TREE.';
-    } catch { if (disposed || operation || serial !== revision) return; identity = null; configured = false; note.textContent = 'Wallet verification unavailable. Free play still works.'; }
+      const address = connection && registry.app.stores.$connection.get().account?.address;
+      identity = valid(p.identity) && (!address || p.identity.wallet.address.toLowerCase() === address.toLowerCase()) ? p.identity : null; configured = p.configured === true;
+      note.textContent = identity ? 'Wallet verified. Continues cost 20,000 TREE.' : connection ? 'Wallet connected. Verification is requested only for saved flights or paid continues.' : 'Connect a Sui wallet. Free play needs no signature.';
+    } catch { if (disposed || operation || serial !== revision) return; identity = null; configured = false; note.textContent = connection ? 'Wallet connected. Protected features are unavailable; free play still works.' : 'Free play works. You can still connect a Sui wallet.'; }
     publish();
   }
   function walletOptions() {
@@ -82,13 +91,13 @@ export function installTreeAccount(game, frame) {
     if (connectionOnly) { checkOutput.textContent = 'Connection check canceled. No sign-in message or payment was requested.'; checkingOnly = false; }
     ++epoch; ++revision; phase = 'idle'; clearConnection(); finishPause(); cancelWait?.();
     if (!connectionOnly) cancelPending = api({ action: 'cancel' }, true).catch(() => {});
-    note.textContent = 'Connection canceled. Your flight is unchanged.'; render();
+    note.textContent = 'Connection canceled. Your flight is unchanged.'; publish();
   }
   function walletChanged() {
     if (phase === 'verifying') { changedWhileVerifying = true; return; }
     ++epoch; ++revision; phase = 'idle'; identity = null; clearConnection(); finishPause(); cancelWait?.(); publish();
     cancelPending = api({ action: 'cancel' }, true).catch(() => {}).then(() => api({ action: 'logout' }).catch(() => {}));
-    note.textContent = 'Wallet changed. Connect again to verify the selected account.';
+    note.textContent = 'Wallet changed. Connect again. Free play needs no signature.';
   }
   async function verify(c, account, token) {
     phase = 'challenge'; changedWhileVerifying = false; note.textContent = 'Preparing a free wallet verification message…'; render();
@@ -103,40 +112,46 @@ export function installTreeAccount(game, frame) {
     identity = p.identity; configured = true; accountSelect.value = account.address;
     note.textContent = 'Wallet verified. Continues cost 20,000 TREE.'; publish(); return identity;
   }
-  function connectWallet({ connectionOnly = false } = {}) {
-    if (identity) return Promise.resolve(identity);
+  function connectWallet({ connectionOnly = false, verifyOwnership = false } = {}) {
+    if (identity && verifyOwnership) return Promise.resolve(identity);
     if (operation) return operation;
     const row = registry.list('sui').find(w => w.id === walletSelect.value);
-    if ((!configured && !connectionOnly) || !row || disposed) { note.textContent = 'Choose a Sui wallet above to connect.'; render(); return Promise.resolve(null); }
-    operation = Promise.race([runConnection(row, { connectionOnly }), new Promise(resolve => { cancelWait = () => resolve(null); })]).finally(() => {
+    if (disposed || !row) { note.textContent = 'Choose a Sui wallet above to connect.'; render(); return Promise.resolve(null); }
+    if (verifyOwnership && !configured) { note.textContent = 'Ownership verification is unavailable. Free play still works.'; render(); return Promise.resolve(null); }
+    operation = Promise.race([runConnection(row, { connectionOnly, verifyOwnership }), new Promise(resolve => { cancelWait = () => resolve(null); })]).finally(() => {
       operation = null; cancelWait = null; render();
       if (connectionOnly) void refresh();
     }); return operation;
   }
-  async function runConnection(row, { connectionOnly = false } = {}) {
+  async function runConnection(row, { connectionOnly = false, verifyOwnership = false } = {}) {
     const token = ++epoch; ++revision; phase = 'connecting'; releasePause = holdGameForAccount(game);
-    checkingOnly = connectionOnly;
+    checkingOnly = !verifyOwnership;
     if (connectionOnly) checkOutput.textContent = `Checking ${row.name} connection on ${window.location.origin}. No sign-in message or payment is requested.`;
     note.textContent = 'Choose an account in your wallet.'; render();
     try {
       await cancelPending; if (!alive(token)) return null;
-      const c = await connectAccountWallet(row); if (!alive(token)) return null;
+      const c = connection || await connectAccountWallet(row); if (!alive(token)) return null;
       if (connectionOnly) {
-        checkOutput.textContent = `Connection check PASSED: ${row.name} returned a Sui Mainnet account on ${window.location.origin}. No sign-in message or payment was requested. Use CONNECT WALLET to verify ownership when ready.`;
+        checkOutput.textContent = `Connection check PASSED: ${row.name} returned a Sui Mainnet account on ${window.location.origin}. No sign-in message or payment was requested.`;
         note.textContent = 'Connection check passed. You are not signed in.';
         return null;
       }
       clearConnection(); connection = c;
       for (const a of c.accounts) { const o = make('option', '', short(a.address)); o.value = a.address; accountSelect.append(o); }
       const account = registry.app.stores.$connection.get().account;
+      if (!account || !c.accounts.some(a => a.address === account.address)) throw new Error('Wallet account changed. Please reconnect.');
+      accountSelect.value = account.address;
       stopWalletWatch = watchAccountWallet(c, walletChanged);
-      return await verify(c, account, token);
+      if (identity && identity.wallet.address.toLowerCase() !== account.address.toLowerCase()) identity = null;
+      if (verifyOwnership) return await verify(c, account, token);
+      note.textContent = 'Wallet connected. Verification is requested only for saved flights or paid continues.';
+      publish(); return { connected: true, address: account.address };
     } catch (e) {
       if (alive(token)) {
         identity = null;
         if (connectionOnly) checkOutput.textContent = `Connection check STOPPED before sign-in: ${row.name} did not return a Sui Mainnet account on ${window.location.origin}. No sign-in message or payment was requested. If the wallet shows “Malicious website”, the block occurred during connection.`;
         note.textContent = Number(e.code) === 4001 || /reject|declin|cancel/i.test(e.message || '') ? 'Wallet approval declined. No payment was made.' : e.message || 'Wallet connection failed.';
-        if (!connectionOnly) cancelPending = api({ action: 'cancel' }, true).catch(() => {});
+        if (verifyOwnership) cancelPending = api({ action: 'cancel' }, true).catch(() => {});
         publish();
       }
       return null;
@@ -156,14 +171,14 @@ export function installTreeAccount(game, frame) {
     const token = ++epoch; ++revision; phase = 'logout'; stopWalletWatch(); stopWalletWatch = () => {}; identity = null;
     releasePause = holdGameForAccount(game); publish();
     operation = (async () => {
-      try { await api({ action: 'logout' }); if (!alive(token)) return null; registry.app.switchAccount({ account }); stopWalletWatch = watchAccountWallet(c, walletChanged); return await verify(c, account, token); }
+      try { await api({ action: 'logout' }); if (!alive(token)) return null; await registry.app.switchAccount({ account }); stopWalletWatch = watchAccountWallet(c, walletChanged); note.textContent = 'Wallet account selected. Verification is requested only for saved flights or paid continues.'; publish(); return null; }
       catch (e) { if (alive(token)) { note.textContent = e.message || 'Account verification failed.'; cancelPending = api({ action: 'cancel' }, true).catch(() => {}); } return null; }
       finally { if (alive(token)) { phase = 'idle'; finishPause(); render(); } }
     })().finally(() => { operation = null; render(); });
   });
   bar.addEventListener('keydown', e => e.stopPropagation());
-  const open = () => { bar.scrollIntoView({ block: 'nearest' }); walletSelect.focus(); void connectWallet(); };
-  const expired = () => { identity = null; note.textContent = 'Session expired. Connect your wallet again.'; publish(); };
+  const open = () => { bar.scrollIntoView({ block: 'nearest' }); void connectWallet({ verifyOwnership: true }); };
+  const expired = () => { identity = null; note.textContent = 'Session expired. Verify again when using saved flights or paid continues.'; publish(); };
   const unsub = registry.subscribe(walletOptions); walletOptions();
   game.events.on('tree-account:open', open); game.events.on('tree-account:expired', expired);
   const focus = () => { if (!operation) void refresh(); }; window.addEventListener('focus', focus);
@@ -171,7 +186,7 @@ export function installTreeAccount(game, frame) {
   return () => {
     disposed = true; ++epoch; ++revision; cancelWait?.(); window.clearInterval(timer); window.removeEventListener('focus', focus);
     game.events.off('tree-account:open', open); game.events.off('tree-account:expired', expired); unsub(); registry.destroy(); stopWalletWatch(); finishPause();
-    for (const k of ['treeWalletKit', 'treeWalletId', 'treeAccountConnect']) game.registry.remove(k);
+    for (const k of ['treeWalletKit', 'treeWalletId', 'treeWalletConnection', 'treeAccountConnect']) game.registry.remove(k);
     bar.remove(); frame.classList.remove('has-tree-account');
   };
 }

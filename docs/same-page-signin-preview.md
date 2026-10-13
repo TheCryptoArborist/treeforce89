@@ -1,6 +1,6 @@
 # Top wallet picker — Sui Mainnet preview
 
-Choose an installed Sui wallet above the game and select CONNECT WALLET. The single app action connects the wallet and requests the existing free personal-message verification. Ownership verification still uses the central TREE Account service and HttpOnly game session. The connected wallet address replaces the connection controls; DISCONNECT revokes the game session and wallet connection. Wallets with multiple authorized accounts expose an account selector; changing it requires a new ownership verification.
+Choose an installed Sui wallet above the game and select CONNECT WALLET. This action only connects and displays the selected account: it does not create a challenge, request a personal-message signature, authenticate the player, or pay. Free gameplay needs no signature. Saved-flight sign-in buttons and the paid-continue button invoke the separate protected-action verification entry point, reusing the connected wallet. Ownership verification still uses the central TREE Account service and HttpOnly game session. The connected address replaces the connection controls; DISCONNECT revokes the game session and wallet connection. Changing an authorized account clears server identity but does not automatically sign a message. The new account must verify before a protected action.
 
 The account modal, wallet-family buttons and network selector are removed. Installed wallet discovery, message signing and payments share the same `@mysten/dapp-kit-core` instance. No separate wallet picker is shown at payment. If the browser is refreshed while an account session remains valid, payment reconnects the wallet chosen in the top picker and explicitly selects the verified payer when that wallet already exposes multiple authorized accounts.
 
@@ -10,7 +10,7 @@ Connection and signature waiting can be canceled from the top bar. Creating/veri
 
 ## Validation
 
-Node checks cover dApp Kit adapter calls, Mainnet-only discovery, account changes, duplicate/pending connection rejection, message-signature rejection, and reuse of the already connected payment wallet. The compiled-game browser workflow checks top-picker connection and automatic ownership verification at 320/390/1200 pixels using a fixture wallet and authentication server, preserves malicious-site rejection and signature rejection, and checks inline continues during ten real Phaser/PostgreSQL recovery scenarios. No installed user wallet or real payment is used by those checks.
+Node checks cover dApp Kit adapter calls, Mainnet-only discovery, account changes, duplicate/pending connection rejection, message-signature rejection, and reuse of the already connected payment wallet. The compiled-game browser workflow checks ordinary connection and account selection without signatures at 320/390/1200 pixels using a fixture wallet and authentication server, then explicitly invokes protected-action verification without reconnecting. It preserves malicious-site rejection and signature rejection, and checks inline continues during ten real Phaser/PostgreSQL recovery scenarios. No installed user wallet or real payment is used by those checks.
 
 Preview: https://deploy-preview-3--treeforce89.netlify.app/
 

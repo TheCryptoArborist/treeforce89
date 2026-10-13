@@ -95,12 +95,23 @@ try{
   await bar.getByRole('button',{name:'DISCONNECT',exact:true}).waitFor({state:'visible'});
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await bar.getByRole('button',{name:'EVM',exact:true}).count(),0);
-  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:2,sign:1,transaction:0,evmDiscovery:0,evmAccess:0});
-  assert.deepEqual(inlineCalls,['challenge','verify']);
+  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:2,sign:0,transaction:0,evmDiscovery:0,evmAccess:0});
+  assert.deepEqual(inlineCalls,[]);
+  assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeAccountIdentity')),null);
+  assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeWalletConnection').address),'0x'+'1'.repeat(64));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
   await page.screenshot({path:`recovery-evidence/simple-wallet-${width}.png`,fullPage:true});
+  // This is the verified-identity entry point used by saved-flight/continue buttons.
+  await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeAccountConnect')());
+  assert.deepEqual(inlineCalls,['challenge','verify']);
+  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:2,sign:1,transaction:0,evmDiscovery:0,evmAccess:0});
   await bar.getByRole('combobox',{name:'Wallet account'}).selectOption('0x'+'2'.repeat(64));
   await bar.getByText('Slush fixture · 0x222222…222222',{exact:true}).waitFor({state:'visible'});
+  await bar.getByText('Wallet account selected. Verification is requested only for saved flights or paid continues.',{exact:true}).waitFor({state:'visible'});
+  assert.equal(inlineCalls.filter(a=>a==='verify').length,1);
+  assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeAccountIdentity')),null);
+  assert.equal((await page.evaluate(()=>window.__suiOnlyWalletCalls)).sign,1);
+  await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeAccountConnect')());
   assert.equal(inlineCalls.filter(a=>a==='verify').length,2);
   await bar.getByRole('button',{name:'DISCONNECT',exact:true}).click();
   await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).waitFor({state:'visible'});
@@ -116,16 +127,21 @@ try{
   assert.equal(inlineCalls.filter(a=>a==='challenge').length,2);
   await page.evaluate(()=>window.__walletMode='signReject');
   await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
+  await bar.getByRole('button',{name:'DISCONNECT',exact:true}).waitFor({state:'visible'});
+  assert.equal(inlineCalls.filter(a=>a==='challenge').length,2);
+  await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeAccountConnect')());
   await bar.getByText('Wallet approval declined. No payment was made.',{exact:true}).waitFor({state:'visible'});
   assert.equal(inlineCalls.filter(a=>a==='verify').length,2);
   assert.equal((await page.evaluate(()=>window.__suiOnlyWalletCalls)).transaction,0);
+  await bar.getByRole('button',{name:'DISCONNECT',exact:true}).click();
+  await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).waitFor({state:'visible'});
   await page.evaluate(()=>window.__walletMode='connectWait');
   await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
   await bar.getByRole('button',{name:'CANCEL',exact:true}).click();
   await bar.getByText('Connection canceled. Your flight is unchanged.',{exact:true}).waitFor({state:'visible'});
   assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.scene.isActive('title')),true);
   assert.equal(inlineCalls.filter(a=>a==='verify').length,2);
-  await context.close();console.log('PASS connection-only success/rejection without authentication or signatures; top wallet picker, automatic verification, account switch, cancellation and security/signature rejection at width',width);
+  await context.close();console.log('PASS ordinary connection and account switch without authentication/signatures; protected-action verification reuses connection; cancellation and security/signature rejection at width',width);
  }
  for(const wave of [1,2,3,4,5,6,7,8,9,10]){
   const token=randomBytes(32).toString('hex'),accountId=randomUUID(),payer='0x'+randomBytes(32).toString('hex');
