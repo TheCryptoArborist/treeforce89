@@ -32,6 +32,7 @@ export function installTreeAccount(game, frame) {
   frame.insertBefore(bar, frame.querySelector('.screen-bezel')); frame.classList.add('has-tree-account');
   game.registry.set('treeWalletKit', registry.app);
   // Only protected feature buttons call this; the top CONNECT WALLET never does.
+  game.registry.set('treeWalletConnect', () => connectWallet());
   game.registry.set('treeAccountConnect', async () => {
     const result = await connectWallet({ verifyOwnership: true });
     return valid(result) ? result : null;
@@ -55,7 +56,9 @@ export function installTreeAccount(game, frame) {
   }
   function publish() {
     // Connection is informational, never an authenticated identity or entitlement.
+    const oldAddress = game.registry.get('treeWalletConnection')?.address;
     game.registry.set('treeWalletConnection', connection ? { name: connection.name, address: registry.app.stores.$connection.get().account?.address } : null);
+    if (oldAddress !== game.registry.get('treeWalletConnection')?.address) game.events.emit('tree-wallet:connection');
     const previous = game.registry.get('treeAccountIdentity'); game.registry.set('treeAccountIdentity', identity);
     if (previous?.accountId !== identity?.accountId || previous?.wallet?.address !== identity?.wallet?.address || previous?.authenticated !== identity?.authenticated) game.events.emit('tree-account:identity', identity);
     render();
@@ -192,7 +195,7 @@ export function installTreeAccount(game, frame) {
   return () => {
     disposed = true; ++epoch; ++revision; cancelWait?.(); window.clearInterval(timer); window.removeEventListener('focus', focus);
     game.events.off('tree-account:open', open); game.events.off('tree-account:expired', expired); unsub(); registry.destroy(); stopWalletWatch(); finishPause();
-    for (const k of ['treeWalletKit', 'treeWalletId', 'treeWalletConnection', 'treeAccountConnect']) game.registry.remove(k);
+    for (const k of ['treeWalletKit', 'treeWalletId', 'treeWalletConnection', 'treeWalletConnect', 'treeAccountConnect']) game.registry.remove(k);
     bar.remove(); frame.classList.remove('has-tree-account');
   };
 }

@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {findNFTree,NFTREE_TYPE} from '../app/game/nftree-access.mjs';
+const owner='0x'+'1'.repeat(64), kiosk='0x'+'3'.repeat(64),capType='0x'+'2'.padStart(64,'0')+'::kiosk::KioskOwnerCap';
+const owned=(type=NFTREE_TYPE,payer=owner)=>({objectId:'0x4',type,owner:{$kind:'AddressOwner',AddressOwner:payer}});
+const page=objects=>({objects,hasNextPage:false,cursor:null});
+test('direct NFTree ownership grants access without signatures or transactions',async()=>{const core={listOwnedObjects:async()=>page([owned()])};assert.equal((await findNFTree(core,owner)).location,'wallet')});
+test('lookalike collection and a different owner do not grant access',async()=>{const core={listOwnedObjects:async()=>page([owned('0x9::collection::NFT'),owned(NFTREE_TYPE,'0x2')])};assert.equal(await findNFTree(core,owner),null)});
+test('ownership pagination finds NFTree beyond first page',async()=>{let calls=0;const core={listOwnedObjects:async({cursor})=>{calls++;return cursor?page([owned()]):{objects:[],hasNextPage:true,cursor:'next'}}};assert.ok(await findNFTree(core,owner));assert.equal(calls,2)});
+test('standard kiosk access requires owned canonical cap and actual child ownership',async()=>{const content=Uint8Array.from(Buffer.from('0'.repeat(64)+kiosk.slice(2),'hex'));const core={listOwnedObjects:async({type})=>page(type===NFTREE_TYPE?[]:[{...owned(capType),content}]),listDynamicFields:async()=>({dynamicFields:[{$kind:'DynamicObject',valueType:NFTREE_TYPE,childId:'0x4',fieldId:'0x5'}],hasNextPage:false}),getObject:async()=>({object:{objectId:'0x4',type:NFTREE_TYPE,owner:{$kind:'ObjectOwner',ObjectOwner:kiosk}}})};assert.equal((await findNFTree(core,owner)).location,'kiosk');core.getObject=async()=>({object:{objectId:'0x4',type:NFTREE_TYPE,owner:{$kind:'ObjectOwner',ObjectOwner:'0x5'}}});assert.equal((await findNFTree(core,owner)).location,'kiosk');core.getObject=async()=>({object:owned()});assert.equal(await findNFTree(core,owner),null)});
+test('RPC failure and broken pagination never grant access',async()=>{await assert.rejects(findNFTree({listOwnedObjects:async()=>{throw Error('offline')}},owner),/offline/);await assert.rejects(findNFTree({listOwnedObjects:async()=>({objects:[],hasNextPage:true,cursor:null})},owner),/pagination/)});

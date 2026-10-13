@@ -22,6 +22,7 @@ export function createContinueProxy({gameOrigin,serviceUrl=null,fetcher=fetch}){
    let command;try{command=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return json({error:'invalid-command'},400);}
    const actions=['status','order','reconcile','cancel','list_purchases','recover_purchase','delivery_status','prepare_delivery','activate_delivery'];
    if(!command||Array.isArray(command)||!actions.includes(command.action)||Object.keys(command).some(k=>['accountId','payer','actor','evidence','verified','restoreAuthorized','clientHash','token','serviceUrl'].includes(k)))return json({error:'invalid-command'},400);
+   if(command.action==='order')return json({enabled:false,error:'checkout-not-enabled',requiresPayment:false},503);
    const upstream=await fetcher(serviceUrl,{method:'POST',redirect:'error',signal:AbortSignal.timeout(18000),headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(command)});
    const reader2=upstream.body?.getReader();if(!reader2)throw Error('missing-service-response');const parts=[];let size=0;
    while(true){const {done,value}=await reader2.read();if(done)break;size+=value.length;if(size>300000){await reader2.cancel();throw Error('oversized-service-response');}parts.push(value);}
