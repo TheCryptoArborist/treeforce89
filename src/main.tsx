@@ -23,7 +23,7 @@ function App() {
           <span>SHIELD SPACE · PAUSE ESC</span>
         </footer>
       </section>
-      <p className="build-label">v0.5.8</p>
+      <p className="build-label">20,000 TREE PER RUN · NO NFTREE REQUIRED</p>
     </main>
   );
 }

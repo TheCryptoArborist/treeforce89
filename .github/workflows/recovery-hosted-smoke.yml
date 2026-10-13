@@ -1,0 +1,22 @@
+name: Hosted recovery candidate smoke
+on:
+  push:
+    branches: [preview/flight-recovery]
+    paths: ['app/game/tree-payments/recovery-hosted-smoke.mjs', '.github/workflows/recovery-hosted-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install existing locked isolated SDK
+        run: npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund
+      - name: Real hosted authentication and empty recovery listing; no token or flight writes
+        run: node app/game/tree-payments/recovery-hosted-smoke.mjs

@@ -1,0 +1,6 @@
+{
+  "name": "treeforce-direct-payments",
+  "private": true,
+  "type": "module",
+  "dependencies": {"@mysten/sui": "2.33.2", "@mysten/dapp-kit-core": "1.6.35"}
+}
