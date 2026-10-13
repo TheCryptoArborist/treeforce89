@@ -8,7 +8,7 @@
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
     "dev": "vite",
-    "build": "npm run test:campaign && npm run test:records && vite build",
+    "build": "npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund && node --test tests/entry-payment.test.mjs && npm run test:campaign && npm run test:records && vite build",
     "preview": "vite preview",
     "test": "npm run build",
     "test:campaign": "node --test tests/campaign-polish.test.mjs",
@@ -18,6 +18,7 @@
     "build:connection": "npm ci --prefix app/game/tree-payments --ignore-scripts --no-audit --no-fund && vite build --config vite.connection.config.ts"
   },
   "dependencies": {
+    "@mysten/sui": "2.33.2",
     "drizzle-orm": "0.45.2",
     "phaser": "^3.90.0",
     "react": "19.2.6",

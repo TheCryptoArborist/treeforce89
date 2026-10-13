@@ -23,7 +23,7 @@ function App() {
           <span>SHIELD SPACE · PAUSE ESC</span>
         </footer>
       </section>
-      <p className="build-label">CORE GAME REBUILD · NO WALLET OR PAYMENTS</p>
+      <p className="build-label">20,000 TREE PER RUN · NO NFTREE REQUIRED</p>
     </main>
   );
 }

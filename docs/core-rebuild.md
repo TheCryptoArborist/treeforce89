@@ -17,3 +17,7 @@ Current acceptance result: FAILED for `https://deploy-preview-3--treeforce89.net
 After connection passes, add read-only NFTree ownership, validate a real holder and non-holder, then integrate the preserved core game. Payments are a final, separately validated stage. A failure at any stage stops expansion of that stage while the gameplay branch can continue.
 
 No automatic production publication, alternate-domain rotation, wallet-warning bypass or provider review is authorized by this restart. The permanent URL remains an explicit release decision; changing code cannot promise acceptance.
+
+## Paid entry branch
+
+The user subsequently requested in-game 20,000 TREE access without NFTree ownership. `feature/paid-game-entry` implements that separate product. The original wallet-free restart branch remains available. Slush acceptance is still unresolved; paid entry is not evidence that the connection block is fixed. See `paid-entry.md` for terms, verification and deployment status.
