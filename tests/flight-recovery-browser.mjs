@@ -81,15 +81,21 @@ try{
   });
   const page=await context.newPage(),inlineCalls=[];page.on('pageerror',e=>errors.push(e.message));
   page.on('request',r=>{if(r.url().endsWith('/api/tree-account-inline'))inlineCalls.push(JSON.parse(r.postData()).action)});
-  await page.goto('http://127.0.0.1:4173/?recoveryTest=1');
+  await page.goto('http://127.0.0.1:4173/?recoveryTest=1&walletCheck=1');
   await page.waitForFunction(()=>window.__treeRecoveryTestGame?.scene.isActive('title'),{},{timeout:20000});
   const bar=page.getByRole('region',{name:'Sui wallet'});
   await bar.getByRole('combobox',{name:'Sui wallet picker'}).getByRole('option',{name:'Slush fixture',exact:true}).waitFor({state:'attached'});
+  await bar.getByRole('button',{name:'CHECK CONNECTION ONLY',exact:true}).click();
+  await bar.getByText(/Connection check PASSED:/).waitFor({state:'visible'});
+  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:1,sign:0,transaction:0,evmDiscovery:0,evmAccess:0});
+  assert.deepEqual(inlineCalls,[]);
+  assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeAccountIdentity')),null);
+  assert.equal(await bar.getByRole('button',{name:'DISCONNECT',exact:true}).isVisible(),false);
   await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
   await bar.getByRole('button',{name:'DISCONNECT',exact:true}).waitFor({state:'visible'});
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await bar.getByRole('button',{name:'EVM',exact:true}).count(),0);
-  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:1,sign:1,transaction:0,evmDiscovery:0,evmAccess:0});
+  assert.deepEqual(await page.evaluate(()=>window.__suiOnlyWalletCalls),{connect:2,sign:1,transaction:0,evmDiscovery:0,evmAccess:0});
   assert.deepEqual(inlineCalls,['challenge','verify']);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
   await page.screenshot({path:`recovery-evidence/simple-wallet-${width}.png`,fullPage:true});
@@ -99,6 +105,12 @@ try{
   await bar.getByRole('button',{name:'DISCONNECT',exact:true}).click();
   await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).waitFor({state:'visible'});
   await page.evaluate(()=>window.__walletMode='connectReject');
+  const beforeCheck=await page.evaluate(()=>window.__suiOnlyWalletCalls.sign),beforeInline=inlineCalls.length;
+  await bar.getByRole('button',{name:'CHECK CONNECTION ONLY',exact:true}).click();
+  await bar.getByText(/Connection check STOPPED before sign-in:/).waitFor({state:'visible'});
+  assert.equal(await page.evaluate(()=>window.__suiOnlyWalletCalls.sign),beforeCheck);
+  assert.equal(inlineCalls.length,beforeInline);
+  assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.registry.get('treeAccountIdentity')),null);
   await bar.getByRole('button',{name:'CONNECT WALLET',exact:true}).click();
   await bar.getByText('Malicious website',{exact:true}).waitFor({state:'visible'});
   assert.equal(inlineCalls.filter(a=>a==='challenge').length,2);
@@ -113,7 +125,7 @@ try{
   await bar.getByText('Connection canceled. Your flight is unchanged.',{exact:true}).waitFor({state:'visible'});
   assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.scene.isActive('title')),true);
   assert.equal(inlineCalls.filter(a=>a==='verify').length,2);
-  await context.close();console.log('PASS top wallet picker, automatic verification, account switch, cancellation and security/signature rejection at width',width);
+  await context.close();console.log('PASS connection-only success/rejection without authentication or signatures; top wallet picker, automatic verification, account switch, cancellation and security/signature rejection at width',width);
  }
  for(const wave of [1,2,3,4,5,6,7,8,9,10]){
   const token=randomBytes(32).toString('hex'),accountId=randomUUID(),payer='0x'+randomBytes(32).toString('hex');
@@ -142,6 +154,7 @@ try{
   },{score,wave});
   await page.waitForFunction(()=>document.querySelector('.flight-recovery-box button')?.textContent==='SAVED — SAFE TO RELOAD FOR TEST',{},{timeout:15000}).catch(async e=>{throw Error(e.message+' '+await page.locator('.flight-recovery-box').innerText())});
   assert.equal(await page.locator('.tree-continue-panel').isVisible(),true);
+  assert.equal(await page.getByRole('region',{name:'Wallet connection check',exact:true}).count(),0);
   assert.equal(await page.evaluate(()=>window.__treeRecoveryTestGame.scene.getScene('game').cameras.main.flashEffect.isRunning),false);
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await page.getByRole('button',{name:'CONTINUE — 20,000 TREE',exact:true}).count(),1);
