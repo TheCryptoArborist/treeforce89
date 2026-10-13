@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TREE FORCE — Wallet Connection Baseline</title>
+  <style>body{margin:0;background:#091c15;color:#edf0d9;font:16px/1.6 system-ui,sans-serif}main{max-width:620px;margin:8vh auto;padding:24px}h1{font-size:28px;line-height:1.2}a{color:#d6ecac}#status{overflow-wrap:anywhere;padding:12px 0}mysten-dapp-kit-connect-button{display:block;margin:20px 0}</style>
+</head>
+<body>
+<main>
+  <h1>Wallet connection baseline</h1>
+  <p>This page uses Mysten’s standard Sui wallet connection component on the TREE FORCE preview domain.</p>
+  <p>It only requests permission to connect and display your wallet address. No message signature, payment, NFT transfer, or game account is requested.</p>
+  <mysten-dapp-kit-connect-button></mysten-dapp-kit-connect-button>
+  <p id="status" role="status" aria-live="polite">Not connected.</p>
+  <p>If Slush displays a security warning, choose Return to safety.</p>
+  <a href="/">Return to TREE FORCE</a>
+</main>
+<script type="module" src="/app/game/tree-payments/wallet-baseline.mjs"></script>
+</body>
+</html>
