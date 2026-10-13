@@ -20,7 +20,7 @@ export function installTreeAccount(game, frame) {
   const accountSelect = make('select'); accountSelect.setAttribute('aria-label', 'Wallet account'); accountSelect.hidden = true;
   const connect = button('CONNECT WALLET', () => void connectWallet()), logout = button('DISCONNECT', () => void signOut()); logout.hidden = true;
   const cancel = button('CANCEL', cancelConnection); cancel.hidden = true;
-  const note = make('p', 'tree-wallet-status', 'Connect a Sui wallet. Free play needs no signature.'); note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
+  const note = make('p', 'tree-wallet-status', 'Connect a Sui wallet to check NFTree access. No signature is needed.'); note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
   controls.append(walletLabel, walletSelect, accountSelect, connect, logout, cancel); bar.append(label, controls, note);
   const checkMode = new URLSearchParams(window.location.search).get('walletCheck') === '1';
   const check = button('CHECK CONNECTION ONLY', () => void connectWallet({ connectionOnly: true }));
@@ -74,7 +74,7 @@ export function installTreeAccount(game, frame) {
       const p = await api(); if (disposed || operation || serial !== revision) return;
       const address = connection && registry.app.stores.$connection.get().account?.address;
       identity = valid(p.identity) && (!address || p.identity.wallet.address.toLowerCase() === address.toLowerCase()) ? p.identity : null; configured = p.configured === true;
-      note.textContent = identity ? 'Wallet verified. Continues cost 20,000 TREE.' : connection ? 'Wallet connected. Verification is requested only for saved flights or paid continues.' : 'Connect a Sui wallet. Free play needs no signature.';
+      note.textContent = identity ? 'Wallet verified. Check NFTree access to play.' : connection ? 'Wallet connected. Check NFTree access to play.' : 'Connect a Sui wallet to check NFTree access. No signature is needed.';
     } catch { if (disposed || operation || serial !== revision) return; identity = null; configured = false; note.textContent = connection ? 'Wallet connected. Protected features are unavailable; free play still works.' : 'Free play works. You can still connect a Sui wallet.'; }
     publish();
   }
@@ -113,7 +113,7 @@ export function installTreeAccount(game, frame) {
     if (changedWhileVerifying) { await api({ action: 'logout' }); throw new Error('Wallet changed. Connect again.'); }
     if (!valid(p.identity) || p.identity.wallet.address.toLowerCase() !== account.address.toLowerCase()) throw new Error('Wallet verification did not complete.');
     identity = p.identity; configured = true; accountSelect.value = account.address;
-    note.textContent = 'Wallet verified. Continues cost 20,000 TREE.'; publish(); return identity;
+    note.textContent = 'Wallet verified. Check NFTree access to play.'; publish(); return identity;
   }
   function connectWallet({ connectionOnly = false, verifyOwnership = false } = {}) {
     if (identity && verifyOwnership) return Promise.resolve(identity);
@@ -147,7 +147,7 @@ export function installTreeAccount(game, frame) {
       stopWalletWatch = watchAccountWallet(c, walletChanged);
       if (identity && identity.wallet.address.toLowerCase() !== account.address.toLowerCase()) identity = null;
       if (verifyOwnership) return await verify(c, account, token);
-      note.textContent = 'Wallet connected. Verification is requested only for saved flights or paid continues.';
+      note.textContent = 'Wallet connected. Check NFTree access to play.';
       publish(); return { connected: true, address: account.address };
     } catch (e) {
       if (alive(token)) {

@@ -23,7 +23,7 @@ function App() {
           <span>SHIELD SPACE · PAUSE ESC</span>
         </footer>
       </section>
-      <p className="build-label">PREVIEW · TREE CONTINUES</p>
+      <p className="build-label">PREVIEW · NFTREE HOLDER ACCESS</p>
     </main>
   );
 }
