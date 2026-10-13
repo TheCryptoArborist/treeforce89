@@ -80,3 +80,11 @@ test('late connection approval after cancellation never signs or authenticates',
   assert.deepEqual(f.calls, ['connect']); assert.equal(f.registry.get('treeAccountIdentity'), null);
   assert.equal(f.registry.get('treeWalletConnection'), null); f.dispose();
 });
+
+test('disconnecting an ordinary connection does not call ownership service', async () => {
+  const f = fixture({ unavailable: true }); await settled(); f.click('CONNECT WALLET'); await settled();
+  f.click('DISCONNECT'); await settled();
+  assert.deepEqual(f.calls, ['connect', 'disconnect']);
+  assert.equal(f.registry.get('treeWalletConnection'), null);
+  assert.match(f.note.textContent, /Wallet disconnected/); f.dispose();
+});

@@ -21,9 +21,11 @@ test('purchase recovery stays above the canvas, next to the account controls',()
  let calls=0,dispose;
  try{
   dispose=installPurchaseRecovery(game,frame,{api:()=>{calls++;},loader:{},pending:{}});
-  const open=frame.querySelector('.tree-purchase-recovery');assert.ok(open);
-  assert.deepEqual(frame.children,[account,open,bezel]);assert.deepEqual(shell.children,[frame]);
-  assert.equal(open.style.width,'100%');assert.equal(open.style.minHeight,'44px');assert.equal(open.type,'button');
+  const tools=frame.querySelector('.tree-recovery-tools');assert.ok(tools);
+  const open=tools.children[1];assert.equal(open.className,'tree-purchase-recovery');
+  assert.equal(tools.tagName,'details');assert.equal(tools.children[0].textContent,'PURCHASE HELP');
+  assert.deepEqual(frame.children,[account,tools,bezel]);assert.deepEqual(shell.children,[frame]);
+  assert.equal(tools.open,undefined);assert.equal(open.type,'button');
   assert.equal(calls,0);assert.equal(game.events.listenerCount('tree-purchase-recovery:open'),1);
   dispose();dispose=null;assert.deepEqual(frame.children,[account,bezel]);assert.equal(game.events.listenerCount('tree-purchase-recovery:open'),0);
  }finally{dispose?.();globalThis.document=original;}

@@ -160,7 +160,13 @@ export function installTreeAccount(game, frame) {
   async function signOut() {
     if (phase !== 'idle' || operation) return;
     phase = 'logout'; ++revision; stopWalletWatch(); stopWalletWatch = () => {}; render();
-    try { await api({ action: 'logout' }); identity = null; clearConnection(); if (registry.app.stores.$connection.get().wallet) await registry.app.disconnectWallet(); note.textContent = 'Wallet disconnected. Free play is available.'; }
+    try {
+      // An ordinary connection has no server session to revoke.
+      if (identity) await api({ action: 'logout' });
+      identity = null; clearConnection();
+      if (registry.app.stores.$connection.get().wallet) await registry.app.disconnectWallet();
+      note.textContent = 'Wallet disconnected. Free play is available.';
+    }
     catch { note.textContent = 'Disconnect could not be confirmed. Please retry.'; }
     finally { phase = 'idle'; publish(); }
   }

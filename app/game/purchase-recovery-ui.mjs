@@ -14,14 +14,16 @@ const copy={
  * cleared. Never imports a wallet or submits an order/transaction. */
 export function installPurchaseRecovery(game,frame,{api,loader,pending}){
  const open=button('RECOVER TREE PURCHASE');open.className='tree-purchase-recovery';
- Object.assign(open.style,{display:'block',width:'100%',minHeight:'44px',margin:'0',padding:'12px 18px',border:'0',borderBottom:'1px solid #315a3a',borderRadius:'0',background:'#09231c',color:'#edf9f2',fontWeight:'700',cursor:'pointer'});
+ const tools=el('details');tools.className='tree-recovery-tools';
+ const summary=el('summary','PURCHASE HELP');
+ tools.append(summary,open);
  const dialog=el('dialog');dialog.className='tree-continue-dialog';dialog.setAttribute('aria-label','Recover TREE purchase');
  const message=el('p');message.setAttribute('role','status');
  const rows=el('div'),details=el('p');details.style.overflowWrap='anywhere';details.style.whiteSpace='pre-line';
  const signIn=button('SIGN IN WITH SUI'),refresh=button('CHECK PURCHASES — NO PAYMENT'),more=button('OLDER PURCHASES'),close=button('CLOSE');more.hidden=true;
  dialog.append(el('h2','RECOVER YOUR CONTINUE'),el('p','Check an existing purchase without sending TREE again.'),signIn,refresh,message,rows,more,details,close);
  // Keep recovery next to sign-in, above the canvas and mobile preview toolbars.
- frame.insertBefore(open,frame.querySelector('.screen-bezel'));document.body.append(dialog);
+ frame.insertBefore(tools,frame.querySelector('.screen-bezel'));document.body.append(dialog);
  let disposed=false,busy=false,epoch=0,owner=null,cursor=null,release=null;const controllers=new Map();
  const identity=()=>game.registry.get('treeAccountIdentity');
  const defaultPrompt=()=>document.getElementById('tree-continue-heading')?.closest('dialog');
@@ -78,5 +80,5 @@ export function installPurchaseRecovery(game,frame,{api,loader,pending}){
  dialog.addEventListener('keydown',e=>e.stopPropagation());dialog.addEventListener('cancel',e=>{e.preventDefault();if(!busy)stop();});
  const changed=()=>{epoch++;for(const c of controllers.values())c.dispose();controllers.clear();owner=null;cursor=null;rows.replaceChildren();details.textContent='';more.hidden=true;message.textContent='Account changed. Check purchases for the current Sui account.';refreshButtons();};
  game.events.on('tree-account:identity',changed);game.events.on('tree-purchase-recovery:open',openPanel);
- return()=>{disposed=true;stop();game.events.off('tree-account:identity',changed);game.events.off('tree-purchase-recovery:open',openPanel);open.remove();dialog.remove();};
+ return()=>{disposed=true;stop();game.events.off('tree-account:identity',changed);game.events.off('tree-purchase-recovery:open',openPanel);tools.remove();dialog.remove();};
 }
