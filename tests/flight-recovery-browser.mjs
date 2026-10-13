@@ -57,7 +57,7 @@ async function pageFor(token,wave=0,viewport={width:1200,height:1000}){
  await page.waitForFunction(()=>window.__treeRecoveryTestGame?.registry.get('treeAccountIdentity')?.authenticated);
  return {page,context};
 }
-async function inputDiagnostic(page){return page.evaluate(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return{paused:s.paused,sceneActive:g.scene.isActive('game'),physicsPaused:s.physics.world.isPaused,inputEnabled:s.input.enabled,keyboardEnabled:s.input.keyboard.enabled,globalKeyboard:g.input.keyboard.enabled,keyDown:s.input.keyboard.keys[65]?.isDown,x:s.player.x,velocity:s.player.body.velocity.x,lives:s.lives,focus:document.activeElement?.tagName,openDialogs:document.querySelectorAll('dialog[open]').length};});}
+async function inputDiagnostic(page){return page.evaluate(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return{paused:s.paused,sceneActive:g.scene.isActive('game'),physicsPaused:s.physics.world.isPaused,inputEnabled:s.input.enabled,keyboardEnabled:s.input.keyboard.enabled,globalKeyboard:g.input.keyboard.enabled,keyDown:s.input.keyboard.keys[65]?.isDown,x:s.player.x,velocity:s.player.body.velocity.x,lives:s.lives,focus:document.activeElement?.tagName,documentFocused:document.hasFocus(),visibility:document.visibilityState,openDialogs:document.querySelectorAll('dialog[open]').length};});}
 try{
  for(const width of [320,390,1200]){
   const context=await browser.newContext({viewport:{width,height:900}});
@@ -178,6 +178,11 @@ try{
   await page.screenshot({path:`recovery-evidence/wave-${wave}-restored.png`,fullPage:true});
   await page.getByRole('button',{name:'RESUME AS PRACTICE — NO TREE',exact:true}).click();
   await page.waitForFunction(()=>{const g=window.__treeRecoveryTestGame,s=g.scene.getScene('game');return g.scene.isActive('game')&&!s.paused&&!s.physics.world.isPaused&&s.lives===3&&s.input.enabled&&s.input.keyboard.enabled&&s.input.keyboard.keys[65];},{},{timeout:5000}).catch(async e=>{throw Error('Input not ready: '+JSON.stringify(await inputDiagnostic(page))+' '+e.message);});
+  // Let the resumed scene complete its first updates before holding a key.
+  // Scene/focus transitions reset Phaser's keyboard state during that boundary.
+  await page.bringToFront();
+  const resumeFrame=await page.evaluate(()=>window.__treeRecoveryTestGame.loop.frame);
+  await page.waitForFunction(frame=>document.hasFocus()&&window.__treeRecoveryTestGame.loop.frame>=frame+2,resumeFrame,{timeout:5000});
   await page.keyboard.down('a');
   try{await page.waitForFunction(()=>window.__treeRecoveryTestGame.scene.getScene('game').player.x<230,{},{timeout:3000});}
   catch(e){throw Error('Movement failed: '+JSON.stringify(await inputDiagnostic(page))+' '+e.message);}
