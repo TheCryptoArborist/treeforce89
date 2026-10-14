@@ -27,9 +27,8 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-      # Temporary until the Sui dependency lockfile is regenerated and committed.
-      - name: Install declared dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
       - name: Run payment regression tests
         run: npm run test:payments
       - name: Build game
