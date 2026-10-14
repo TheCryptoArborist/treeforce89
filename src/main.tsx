@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import CanopyGame from "../app/CanopyGame";
+import NFTreeGateway from "../app/NFTreeGateway";
 import "../app/globals.css";
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
         </header>
         <div className="screen-bezel">
           <div className="game-viewport">
-            <CanopyGame />
+            <NFTreeGateway />
             <div className="crt-lines" aria-hidden="true" />
           </div>
         </div>
