@@ -29,6 +29,18 @@ export default function NFTreeGateway() {
     setConnection(null);setError("");
     try{await disconnectSuiWallet(connection?.wallet)}catch{}
   };
+  useEffect(()=>{
+    if(!connection)return;
+    const wallet=connection.wallet;
+    const accountAddress=connection.account.address;
+    const check=()=>{
+      const active=Array.from(wallet.accounts||[]).some(account=>account.address===accountAddress&&account.chains?.includes("sui:mainnet"));
+      if(!active){setConnection(null);setError("Wallet account changed or disconnected. Reconnect to verify NFTree access.")}
+    };
+    check();
+    const timer=window.setInterval(check,1500);
+    return()=>window.clearInterval(timer);
+  },[connection]);
   if(connection?.eligible) {
     return <div className="nftree-game-shell">
       <div className="nftree-wallet-bar"><span>NFTree verified · {connection.account.address.slice(0,6)}…{connection.account.address.slice(-4)}</span><button type="button" onClick={disconnect}>Disconnect</button></div>
