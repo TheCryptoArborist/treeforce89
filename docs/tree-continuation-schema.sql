@@ -53,3 +53,18 @@ CREATE TABLE IF NOT EXISTS tree_wallet_challenges (
 -- RETURNING wallet,message,expires_at inside a DB transaction.
 -- Verification failure must NOT restore a consumed challenge.
 -- Signature validation and credential issuance remain to be implemented.
+
+-- Separate wallet authentication credentials from game sessions.
+-- A wallet login must never, by itself, grant NFTree entry or a paid continue.
+CREATE TABLE IF NOT EXISTS tree_wallet_logins (
+  token_hash CHAR(64) PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS tree_wallet_logins_wallet_idx
+  ON tree_wallet_logins(wallet);
+-- A future server-authenticated game session creation endpoint must verify
+-- login ownership, NFTree entitlement, and server-issued run/session identity.
+-- Never accept game_over, run_id, wave or wallet as authoritative client claims.
