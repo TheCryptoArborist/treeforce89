@@ -41,3 +41,7 @@ button,canvas{touch-action:none}
 .nftree-gateway button:disabled{opacity:.55;cursor:not-allowed}
 .nftree-gateway [role=alert]{color:#ff6b62}
 .nftree-gateway a{color:#f2c94c}
+
+.nftree-diagnostic{width:min(100%,350px);padding:10px;border:1px solid #f2c94c;border-radius:6px;background:#081a12;display:flex;flex-direction:column;gap:6px;text-align:left;font-size:11px;color:#fff7df}
+.nftree-diagnostic strong{color:#f2c94c}
+.nftree-diagnostic small{color:#b9c9b6;line-height:1.4}
