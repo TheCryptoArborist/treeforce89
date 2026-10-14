@@ -10,6 +10,7 @@ export default function NFTreeGateway() {
   const [selected,setSelected]=useState("");
   const [connection,setConnection]=useState<Awaited<ReturnType<typeof connectAndCheckNFTree>>|null>(null);
   const [pending,setPending]=useState(false);
+  const [sessionVersion,setSessionVersion]=useState(0);
   const [error,setError]=useState("");
   useEffect(()=>{
     const update=()=>setWallets(listSuiWallets());
@@ -21,12 +22,12 @@ export default function NFTreeGateway() {
     const wallet=wallets.find(w=>w.name===selected)??wallets[0];
     if(!wallet)return setError("Install or enable a Sui mainnet wallet.");
     setPending(true);setError("");
-    try{setConnection(await connectAndCheckNFTree(wallet))}
-    catch(e){setConnection(null);setError(e instanceof Error?e.message:"Wallet connection failed")}
+    try{setConnection(await connectAndCheckNFTree(wallet));setSessionVersion(v=>v+1)}
+    catch(e){setConnection(null);setSessionVersion(v=>v+1);setError(e instanceof Error?e.message:"Wallet connection failed")}
     finally{setPending(false)}
   };
   const disconnect=async()=>{
-    setConnection(null);setError("");
+    setConnection(null);setSessionVersion(v=>v+1);setError("");
     try{await disconnectSuiWallet(connection?.wallet)}catch{}
   };
   useEffect(()=>{
@@ -35,7 +36,7 @@ export default function NFTreeGateway() {
     const accountAddress=connection.account.address;
     const check=()=>{
       const active=Array.from(wallet.accounts||[]).some(account=>account.address===accountAddress&&account.chains?.includes("sui:mainnet"));
-      if(!active){setConnection(null);setError("Wallet account changed or disconnected. Reconnect to verify NFTree access.")}
+      if(!active){setConnection(null);setSessionVersion(v=>v+1);setError("Wallet account changed or disconnected. Reconnect to verify NFTree access.")}
     };
     check();
     const timer=window.setInterval(check,1500);
@@ -44,7 +45,7 @@ export default function NFTreeGateway() {
   if(connection?.eligible) {
     return <div className="nftree-game-shell">
       <div className="nftree-wallet-bar"><span>NFTree verified · {connection.account.address.slice(0,6)}…{connection.account.address.slice(-4)}</span><button type="button" onClick={disconnect}>Disconnect</button></div>
-      <CanopyGame />
+      <CanopyGame key={sessionVersion} />
     </div>;
   }
   return <div className="nftree-gateway" aria-label="NFTree Gateway">
