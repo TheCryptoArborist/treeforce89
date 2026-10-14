@@ -4,6 +4,8 @@
 CREATE TABLE IF NOT EXISTS tree_game_sessions (
   session_id TEXT PRIMARY KEY,
   wallet TEXT NOT NULL,
+  session_token_hash CHAR(64) UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '2 hours'),
   run_id TEXT NOT NULL,
   wave INTEGER NOT NULL CHECK (wave >= 0),
   continuation_number INTEGER NOT NULL DEFAULT 0 CHECK (continuation_number >= 0),
@@ -30,3 +32,9 @@ CREATE TABLE IF NOT EXISTS tree_continue_redemptions (
 --      continuation_number=continuation_number+1.
 -- 4) COMMIT. Roll back on any conflict.
 -- Session state must not be writable directly by an unauthenticated browser.
+
+-- Session tokens must be generated with cryptographically secure randomness
+-- by a trusted backend AFTER verifying a signed wallet-login challenge.
+-- Only the SHA-256 token hash is stored. Session issuance and wallet-signature
+-- validation are not implemented yet; the public payment endpoint stays disabled.
+-- Add session_token_hash / expires_at via a reviewed migration for existing DBs.
