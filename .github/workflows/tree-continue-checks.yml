@@ -33,3 +33,10 @@ jobs:
         run: npm run test:payments
       - name: Build game
         run: npm run build
+      - name: Package tested gateway preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: tree-force-gateway-preview
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
