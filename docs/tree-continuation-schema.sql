@@ -38,3 +38,18 @@ CREATE TABLE IF NOT EXISTS tree_continue_redemptions (
 -- Only the SHA-256 token hash is stored. Session issuance and wallet-signature
 -- validation are not implemented yet; the public payment endpoint stays disabled.
 -- Add session_token_hash / expires_at via a reviewed migration for existing DBs.
+
+-- Wallet authentication challenges. The backend must store only a hash of
+-- each cryptographically random nonce. Issue challenge and consume atomically.
+CREATE TABLE IF NOT EXISTS tree_wallet_challenges (
+  challenge_hash CHAR(64) PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  message TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- consumeOnce(challenge_hash) must DELETE ... WHERE challenge_hash=$1
+-- RETURNING wallet,message,expires_at inside a DB transaction.
+-- Verification failure must NOT restore a consumed challenge.
+-- Signature validation and credential issuance remain to be implemented.
