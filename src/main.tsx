@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import NFTreeGateway from "../app/NFTreeGateway";
+import PassiveWalletDiagnostics from "../app/PassiveWalletDiagnostics";
 import "../app/globals.css";
 
 function App() {
@@ -13,7 +14,7 @@ function App() {
         </header>
         <div className="screen-bezel">
           <div className="game-viewport">
-            <NFTreeGateway />
+            {new URLSearchParams(window.location.search).get("walletDiagnostics")==="passive" ? <PassiveWalletDiagnostics /> : <NFTreeGateway />}
             <div className="crt-lines" aria-hidden="true" />
           </div>
         </div>
