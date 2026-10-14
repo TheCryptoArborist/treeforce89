@@ -46,3 +46,15 @@ Status: **staged; no payment collection or paid unlock enabled**.
 - The staged `resumeRun` parameter is **not** payment proof. No user-facing payment button should call it until a trusted authorization bridge exists.
 - The `wave` field in `RunState` is zero-based. Resume at `run.wave`, not `run.wave + 1`.
 - Phaser runs in the browser, so score and wave preservation is a gameplay convenience, not an anti-cheat security guarantee. A stronger reward system needs server-authoritative scoring.
+
+
+## NFTree.net gateway source identified (October 14, 2026)
+
+Canonical site repository: `TheCryptoArborist/nftree_landing`.
+
+- Wallet integration: `src/wallet-mint.js`, using `@mysten/wallet-standard` and `@mysten/sui` (not the deprecated JSON-RPC dApp Kit).
+- The NFTree wallet supports `sui:mainnet`, Wallet Standard connection and transaction signing.
+- The TREE FORCE branch now includes `app/game/nftree-access.mjs` with a **read-only** direct-ownership check for `0xf6c6d439ea0da2f3e9ba79e4992a7a4c113215fbf54c442ac9020c315f953705::collection::NFT`.
+- Ownership is not yet a game-entry gate. Connect a wallet and verify actual ownership before enabling access restrictions. A browser address by itself is not authenticated wallet identity.
+- Direct ownership is not equivalent to kiosk or custody holdings. Handle those explicitly rather than rejecting legitimate NFTree owners silently.
+- The 20,000 TREE payment remains exclusively for continuation after all lives are lost, never initial entry.
