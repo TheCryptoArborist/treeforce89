@@ -12,12 +12,16 @@ export function listSuiWallets() {
   );
 }
 
-export async function connectAndCheckNFTree(wallet) {
+export async function connectAndCheckNFTree(wallet, onStage = () => {}) {
+  onStage("wallet-connection-requested");
   if (!wallet?.features?.[StandardConnect]) throw new Error("Select a supported Sui wallet");
   const result = await wallet.features[StandardConnect].connect();
+  onStage("wallet-connected");
   const account = Array.from(result.accounts || wallet.accounts || []).find(account => account.chains?.includes(MAINNET));
   if (!account?.address) throw new Error("Wallet did not provide a Sui mainnet account");
+  onStage("ownership-query-started");
   const eligible = await checkDirectNFTreeOwnership({client,wallet:account.address});
+  onStage(eligible ? "ownership-confirmed" : "ownership-not-found");
   return {wallet,account,eligible};
 }
 
