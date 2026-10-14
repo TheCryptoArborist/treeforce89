@@ -5,7 +5,7 @@ import {readFileSync} from "node:fs";
 const source=readFileSync(new URL("../app/NFTreeGateway.tsx",import.meta.url),"utf8");
 test("game is rendered only for NFTree-eligible wallet",()=>{
  assert.match(source,/if\(connection\?\.eligible\)/);
- assert.match(source,/<CanopyGame(?:\\s+[^>]*)?\\s*\\/>/);
+ assert.match(source,/<CanopyGame[^>]*\/>/);
 });
 test("wallet account switch invalidates gateway session",()=>{
  assert.match(source,/wallet\.accounts/);
