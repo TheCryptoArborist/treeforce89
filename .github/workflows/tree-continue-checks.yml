@@ -18,13 +18,18 @@ permissions:
   contents: read
 
 jobs:
-  payment-unit-tests:
+  payment-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run isolated payment tests
+          cache: 'npm'
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run payment regression tests
         run: npm run test:payments
+      - name: Build game
+        run: npm run build
