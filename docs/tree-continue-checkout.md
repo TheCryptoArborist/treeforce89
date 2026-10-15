@@ -58,3 +58,27 @@ Canonical site repository: `TheCryptoArborist/nftree_landing`.
 - Ownership is not yet a game-entry gate. Connect a wallet and verify actual ownership before enabling access restrictions. A browser address by itself is not authenticated wallet identity.
 - Direct ownership is not equivalent to kiosk or custody holdings. Handle those explicitly rather than rejecting legitimate NFTree owners silently.
 - The 20,000 TREE payment remains exclusively for continuation after all lives are lost, never initial entry.
+
+
+## Security boundary: session creation versus game-over proof
+
+The server-only `nftree-session-service.mjs` composes hashed wallet-login lookup,
+mainnet direct NFTree ownership checks, and issuance of a new game session.
+It is **not deployed**, and the React/Phaser game is **not yet wired** to the
+server-issued run ID or session token.
+
+A server-issued session alone does **not** prove that a player lost all lives.
+The current Phaser game executes in the browser and can be modified by the
+player. Never allow an HTTP request with `gameOver:true`, `lives:0`, or
+`wave:N` to set `continue_pending` in PostgreSQL.
+
+Before accepting real TREE:
+- Implement a trusted game-over state transition and define its anti-cheat
+  guarantees. If using client-reported outcomes, explicitly acknowledge they
+  are not independently verifiable and limit associated rewards accordingly.
+- Bind the Phaser run ID to the server-issued run ID and secure session.
+- Verify current SDK ownership response shape against actual mainnet data,
+  including NFTrees held via kiosks/custody.
+- Implement authenticated HTTP handlers, durable DB migrations, and a trusted
+  mainnet payment reader with integration tests against real transactions.
+- Keep `netlify/functions/tree-continue.mjs` returning 503 until all gates pass.
