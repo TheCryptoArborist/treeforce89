@@ -50,3 +50,27 @@ BEGIN
       AND continue_pending=FALSE AND game_over=FALSE;
   IF accepted <> 1 THEN RAISE EXCEPTION 'Invalid continuation session state'; END IF;
 END $$;
+
+-- Logout revocation must immediately invalidate both credential types.
+DO $$
+DECLARE accepted integer;
+BEGIN
+  INSERT INTO tree_wallet_logins(token_hash,wallet,expires_at)
+  VALUES(repeat('d',64),'0x1234',now()+interval '30 minutes');
+  UPDATE tree_wallet_logins SET revoked_at=NOW()
+  WHERE token_hash=repeat('d',64) AND revoked_at IS NULL;
+  SELECT count(*) INTO accepted FROM tree_wallet_logins
+  WHERE token_hash=repeat('d',64) AND expires_at>NOW() AND revoked_at IS NULL;
+  IF accepted<>0 THEN RAISE EXCEPTION 'Revoked login still usable'; END IF;
+
+  INSERT INTO tree_game_sessions(session_id,wallet,run_id,session_token_hash,
+    expires_at,game_over,continue_pending)
+  VALUES('session-logout','0x1234','grove-logout',repeat('e',64),
+    now()+interval '2 hours',TRUE,TRUE);
+  UPDATE tree_game_sessions SET expires_at=NOW(),continue_pending=FALSE
+  WHERE session_token_hash=repeat('e',64) AND expires_at>NOW();
+  SELECT count(*) INTO accepted FROM tree_game_sessions
+  WHERE session_token_hash=repeat('e',64)
+    AND (expires_at>NOW() OR continue_pending=TRUE);
+  IF accepted<>0 THEN RAISE EXCEPTION 'Revoked game session still active'; END IF;
+END $$;
