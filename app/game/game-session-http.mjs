@@ -20,7 +20,9 @@ export function createGameSessionHttpHandler({service}) {
     const match=/^Bearer ([a-f0-9]{64})$/.exec(authorization);
     if(!match)
       return Response.json({error:"Wallet authentication required"},{status:401,headers});
-    if(request.headers.get("content-length") && Number(request.headers.get("content-length"))>0)
+    // Reject bodies even when Content-Length is absent (chunked requests).
+    // The only accepted credential is the Authorization header.
+    if(await request.text())
       return Response.json({error:"No client game-state payload permitted"},{status:400,headers});
     try {
       const session=await service.create({loginToken:match[1]});
