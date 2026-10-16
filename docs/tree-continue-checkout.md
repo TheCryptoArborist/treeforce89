@@ -82,3 +82,21 @@ Before accepting real TREE:
 - Implement authenticated HTTP handlers, durable DB migrations, and a trusted
   mainnet payment reader with integration tests against real transactions.
 - Keep `netlify/functions/tree-continue.mjs` returning 503 until all gates pass.
+
+
+## React/Phaser run ID bridge (October 15)
+
+`CanopyGame` and `createCanopyGame` now accept an optional `serverRunId`
+with the format `grove-<32 lowercase hex characters>`. When provided, a new
+Phaser run uses it. Without it, the existing offline run ID is generated.
+A paid continuation retains the prior run ID.
+
+**This is only a display/gameplay correlation mechanism, NOT an authenticated
+server session.** The React NFTree Gateway does not yet fetch an authenticated
+server-issued run ID, and the server must never trust a run ID echoed by the
+browser as proof of NFTree ownership, score, lives, or Game Over.
+
+The next step is an authenticated server endpoint for game-session creation,
+followed by an explicitly defined, abuse-resistant game-over reporting policy.
+No real TREE transfer should be enabled before those controls and the Slush
+security review are complete.
