@@ -28,3 +28,20 @@ button,canvas{touch-action:none}
 @media(prefers-reduced-motion:reduce){.crt-lines{display:none}
 *{animation:none!important}
 }
+
+.nftree-game-shell{height:100%;width:100%;position:relative}
+.nftree-wallet-bar{position:absolute;top:4px;left:4px;right:4px;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 8px;border:1px solid #315a3a;background:#07140df0;font-size:10px;color:#65dc79}
+.nftree-wallet-bar button{background:#0d2016;color:#fff7df;border:1px solid #f2c94c;padding:5px 8px;cursor:pointer}
+.nftree-gateway{height:100%;width:100%;min-height:360px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;text-align:center;padding:24px;background:radial-gradient(circle at center,#173524,#06110d 72%)}
+.nftree-gateway h2{font-size:24px;color:#65dc79;margin:0}
+.nftree-gateway p{font-size:13px;line-height:1.6;max-width:340px;margin:0}
+.nftree-gateway label{font-size:12px;color:#f2c94c}
+.nftree-gateway select,.nftree-gateway button{width:min(100%,310px);min-height:42px;border:1px solid #65dc79;border-radius:6px;background:#0c2017;color:#fff7df;padding:10px}
+.nftree-gateway button{background:#205f35;font-weight:bold;cursor:pointer}
+.nftree-gateway button:disabled{opacity:.55;cursor:not-allowed}
+.nftree-gateway [role=alert]{color:#ff6b62}
+.nftree-gateway a{color:#f2c94c}
+
+.nftree-diagnostic{width:min(100%,350px);padding:10px;border:1px solid #f2c94c;border-radius:6px;background:#081a12;display:flex;flex-direction:column;gap:6px;text-align:left;font-size:11px;color:#fff7df}
+.nftree-diagnostic strong{color:#f2c94c}
+.nftree-diagnostic small{color:#b9c9b6;line-height:1.4}

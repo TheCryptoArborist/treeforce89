@@ -1,0 +1,42 @@
+name: Synchronize TREE gateway lockfile
+
+on:
+  push:
+    branches: [feature/tree-paid-continue]
+    paths:
+      - package.json
+      - .github/workflows/tree-lockfile-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tree-lockfile-sync
+  cancel-in-progress: false
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/tree-paid-continue
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Resolve exact package lock
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit only the lockfile when changed
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "Lockfile already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Synchronize Sui wallet dependency lockfile"
+          git push origin HEAD:feature/tree-paid-continue
