@@ -5,7 +5,7 @@ import disabled from "../netlify/functions/tree-session.mjs";
 
 const url="https://feature-tree-paid-continue--treeforce89.netlify.app/.netlify/functions/tree-session";
 const token="a".repeat(64);
-const req=(opts={})=>new Request(url,{method:"POST",headers:{authorization:"Bearer "+token,...opts.headers},...opts});
+const req=(opts={})=>new Request(url,{...opts,method:"POST",headers:{authorization:"Bearer "+token,...opts.headers}});
 test("trusted handler creates a session without accepting wallet or game state",async()=>{
  const calls=[];
  const handle=createGameSessionHttpHandler({service:{create:async input=>{
