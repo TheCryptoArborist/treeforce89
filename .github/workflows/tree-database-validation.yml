@@ -1,0 +1,89 @@
+name: TREE database migration validation
+
+on:
+  push:
+    branches:
+      - feature/tree-paid-continue
+    paths:
+      - 'db/staged-migrations/**'
+      - 'tests/staged-database-schema.test.mjs'
+      - '.github/workflows/tree-database-validation.yml'
+  pull_request:
+    paths:
+      - 'db/staged-migrations/**'
+      - '.github/workflows/tree-database-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tree_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: tree_auth_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tree_test -d tree_auth_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: tree_test
+      PGPASSWORD: local_test_only
+      PGDATABASE: tree_auth_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Apply staged migration in disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f db/staged-migrations/20261016030500_tree_authentication.sql
+      - name: Verify tables and uniqueness constraints
+        run: |
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF (SELECT count(*) FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name IN ('tree_wallet_challenges','tree_wallet_logins','tree_game_sessions','tree_continue_redemptions')) <> 4
+            THEN RAISE EXCEPTION 'Missing TREE authentication tables'; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                WHERE conrelid='tree_continue_redemptions'::regclass
+                  AND contype='u')
+            THEN RAISE EXCEPTION 'Missing continuation uniqueness constraint'; END IF;
+          END $$;
+          SQL
+      - name: Verify digest cannot be redeemed twice
+        run: |
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO tree_game_sessions(session_id,wallet,run_id)
+            VALUES('session-a','0x1234','grove-a');
+          INSERT INTO tree_continue_redemptions(digest,session_id,continuation_number,wallet,run_id)
+            VALUES('digest-a','session-a',0,'0x1234','grove-a');
+          DO $$
+          BEGIN
+            BEGIN
+              INSERT INTO tree_continue_redemptions(digest,session_id,continuation_number,wallet,run_id)
+                VALUES('digest-a','session-a',1,'0x1234','grove-a');
+              RAISE EXCEPTION 'Duplicate digest unexpectedly accepted';
+            EXCEPTION WHEN unique_violation THEN NULL;
+            END;
+            BEGIN
+              INSERT INTO tree_continue_redemptions(digest,session_id,continuation_number,wallet,run_id)
+                VALUES('digest-b','session-a',0,'0x1234','grove-a');
+              RAISE EXCEPTION 'Duplicate session continuation unexpectedly accepted';
+            EXCEPTION WHEN unique_violation THEN NULL;
+            END;
+          END $$;
+          SQL
