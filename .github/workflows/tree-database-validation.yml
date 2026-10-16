@@ -6,6 +6,7 @@ on:
       - feature/tree-paid-continue
     paths:
       - 'db/staged-migrations/**'
+      - 'tests/sql/**'
       - 'tests/staged-database-schema.test.mjs'
       - '.github/workflows/tree-database-validation.yml'
   pull_request:
@@ -64,6 +65,8 @@ jobs:
             THEN RAISE EXCEPTION 'Missing continuation uniqueness constraint'; END IF;
           END $$;
           SQL
+      - name: Validate authentication and redemption against PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/tree-auth-integration.sql
       - name: Verify digest cannot be redeemed twice
         run: |
           psql -X -v ON_ERROR_STOP=1 <<'SQL'
