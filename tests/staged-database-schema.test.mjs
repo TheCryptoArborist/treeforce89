@@ -11,8 +11,10 @@ test("staged migration includes all authentication and payment tables",()=>{
  assert.match(migration,/UNIQUE\(session_id,continuation_number\)/);
  assert.match(migration,/digest TEXT PRIMARY KEY/);
 });
-test("migration is not in auto-applied Netlify migration directory",()=>{
- assert.equal(existsSync(new URL("../netlify/database/migrations/20261016030500_tree_authentication.sql",import.meta.url)),false);
+test("approved Netlify migration exactly matches validated staged SQL",()=>{
+ const promoted=new URL("../netlify/database/migrations/20261016030500_tree_authentication.sql",import.meta.url);
+ assert.equal(existsSync(promoted),true);
+ assert.equal(readFileSync(promoted,"utf8"),migration);
 });
 test("public session and continuation endpoints remain fail-closed",()=>{
  assert.match(publicSession,/status:503/);

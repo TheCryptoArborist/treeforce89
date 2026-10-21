@@ -6,12 +6,14 @@ on:
       - feature/tree-paid-continue
     paths:
       - 'db/staged-migrations/**'
+      - 'netlify/database/migrations/**'
       - 'tests/sql/**'
       - 'tests/staged-database-schema.test.mjs'
       - '.github/workflows/tree-database-validation.yml'
   pull_request:
     paths:
       - 'db/staged-migrations/**'
+      - 'netlify/database/migrations/**'
       - '.github/workflows/tree-database-validation.yml'
   workflow_dispatch:
 
@@ -48,8 +50,10 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client
-      - name: Apply staged migration in disposable PostgreSQL
-        run: psql -X -v ON_ERROR_STOP=1 -f db/staged-migrations/20261016030500_tree_authentication.sql
+      - name: Confirm promoted migration matches validated staged SQL
+        run: cmp db/staged-migrations/20261016030500_tree_authentication.sql netlify/database/migrations/20261016030500_tree_authentication.sql
+      - name: Apply promoted migration in disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f netlify/database/migrations/20261016030500_tree_authentication.sql
       - name: Verify tables and uniqueness constraints
         run: |
           psql -X -v ON_ERROR_STOP=1 <<'SQL'
