@@ -1,23 +1,37 @@
 # TREE FORCE '89 — Preview database activation gate
 
-Status: **not provisioned or connected**. No database migration has been applied to Netlify.
+Status (October 20, 2026): **isolated development database provisioned, migrated, and connected**.
 
-## Verified
-- Disposable PostgreSQL 16 CI migration and uniqueness tests passed.
-- Staged SQL: `db/staged-migrations/20261016030500_tree_authentication.sql`.
-- Read-only preflight: `app/game/preview-database-preflight.mjs`.
+## Deployment verification
 
-## Before deploying an isolated Netlify database
+- Approved Git branch: `feature/tree-paid-continue`; Netlify context: `branch-deploy`.
+- Netlify database branch ID: `feature/tree-paid-continue`, separate from the default `production` database branch.
+- Dependency `@netlify/database` is pinned to `2.0.1` with a synchronized lockfile.
+- Netlify deploy `6ad82528174cd7200942ae64` reports migration `20261016030500_tree_authentication` applied successfully on the development database branch.
+- Runtime verification deploy: `6ad82590a7d08e0ea20a459f`, commit `4a1d5102aa138fce438ffc4dbd90be200b604d21`.
+- Read-only runtime check: `https://feature-tree-paid-continue--treeforce89.netlify.app/.netlify/functions/tree-database-status` returned HTTP 200 with `ready:true`, four tables, and eight successful constraint checks.
+- Verified tables: `tree_wallet_challenges`, `tree_wallet_logins`, `tree_game_sessions`, `tree_continue_redemptions`.
+- Verified primary keys for all four tables, unique game-session token, unique run ID, unique session/continuation pair, and redemption-to-session foreign key.
+- Diagnostic refuses production, other Git branches, mismatched deploy IDs, and non-GET requests before connecting. It returns no database credentials, connection details, or user rows.
+- All 161 local regression tests and the game build pass. CI additionally validates the migration, authentication/redemption operations and the schema inspector in disposable PostgreSQL 16.
+- Production remains at commit `f04261491ae78dc21cb87842bc3a0b1da81cefc6`, published deploy `6a9d79efef404400084bec93`. No production deploy or production schema migration was performed.
+- The current production application has no database branch assignment. No production connection string was copied into a preview environment variable.
 
-1. In Netlify, establish a **separate database for the branch preview** `feature/tree-paid-continue`. Verify the branch connection string is distinct from production. Never copy a production connection string into preview environment variables.
-2. Confirm whether Netlify Database is enabled for this site and supports isolated database branches on the current plan. The project connector currently exposes inspection and setup guidance, **not database provisioning or migration actions**.
-3. Install `@netlify/database` with a synchronized lockfile, then use `getDatabase().pool` only in server functions. Do not bundle database credentials into React or Phaser.
-4. After isolation is verified, review and promote the staged SQL into `netlify/database/migrations/` on the preview branch. Netlify auto-applies files in that directory during deployment, so do not move it prematurely.
-5. Run read-only `checkTreePreviewDatabase` with trusted Netlify deploy context, branch identity, and an independently verified isolation flag.
-6. Verify wallet challenge issuance and atomic consumption, login credential issuance, NFTree eligibility, and session creation against the preview DB. No real payments.
-7. Keep `tree-session` and `tree-continue` public endpoints returning 503 until authenticated handlers, safe Game Over policy and Sui transaction verification are ready.
+## Remaining application work
 
-**Do not assume** that a successful GitHub Actions PostgreSQL service test means a Netlify database exists. No secrets or DB URLs should be committed to GitHub.
+The database blocker is resolved. Wallet authentication and NFTree session issuance still need to be wired into the deployed game. Public session, logout and paid-continuation endpoints remain deliberately disabled; this migration does not activate them. Slush security warnings remain a separate unresolved issue and must not be bypassed. No live 20,000 TREE payments are enabled.
+
+The migration is now in the automatic Netlify migration directory **on this development branch only**. A future merge and production publish would apply it to production; those actions are not authorized by the development-only task.
+
+## Migration and safety notes
+
+- Validated source: `db/staged-migrations/20261016030500_tree_authentication.sql`.
+- Applied copy: `netlify/database/migrations/20261016030500_tree_authentication.sql` (byte-for-byte identical).
+- Netlify applies hosted migrations during deployment. Never apply DDL through a direct connection or modify a migration already applied.
+- The database status function uses only fixed, read-only metadata queries. All game authentication and payment credentials remain server-side.
+- Read-only preflight helper: `app/game/preview-database-preflight.mjs`.
+- Additional runtime inspection: `app/game/preview-database-status.mjs`.
+- CI workflow: `.github/workflows/tree-database-validation.yml`.
 
 
 ## Server-side logout contract (October 16)
