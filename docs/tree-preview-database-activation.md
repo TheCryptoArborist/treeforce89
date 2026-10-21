@@ -17,9 +17,36 @@ Status (October 20, 2026): **isolated development database provisioned, migrated
 - Production remains at commit `f04261491ae78dc21cb87842bc3a0b1da81cefc6`, published deploy `6a9d79efef404400084bec93`. No production deploy or production schema migration was performed.
 - The current production application has no database branch assignment. No production connection string was copied into a preview environment variable.
 
-## Remaining application work
+## Wallet gateway activation (October 21, 2026)
 
-The database blocker is resolved. Wallet authentication and NFTree session issuance still need to be wired into the deployed game. Public session, logout and paid-continuation endpoints remain deliberately disabled; this migration does not activate them. Slush security warnings remain a separate unresolved issue and must not be bypassed. No live 20,000 TREE payments are enabled.
+The development preview now supports signed-wallet authentication and server-verified direct NFTree ownership before gameplay. Gateway activation commit: `4ea1c48436848e167cfb8a06f916410eaea6400e`; runtime-context compatibility fix: `72c5d91e566f22f664af5a4d5a35d3dad1c123ce`; source-branch metadata fix: `29c079b23d65475b1865cef26810f987236833be`.
+
+Player flow: Connect Wallet → Verify NFTree & Play → approve a personal-message signature → server checks the single-use challenge and live mainnet ownership → server saves and returns a game session → Phaser starts with the server-issued run ID.
+
+- `tree-challenge`, `tree-session` and `tree-logout` are active only for the approved Git branch and verified Netlify development deploy contexts. Production is rejected before database access.
+- Trusted Netlify runtime metadata must identify this site and a nonproduction deployment; the server-only build metadata must identify the approved feature branch. Function artifacts may be reused across nonproduction deploys, so runtime IDs are not compared to the original build ID. Only the branch alias, PR #7 preview alias, and the current immutable runtime deploy URL are accepted.
+- Build metadata uses Netlify's `HEAD` source-branch name with `BRANCH` as fallback. Deploy Previews can check out a pull-request ref rather than the source-branch name. The build context still rejects production even when the source branch is approved.
+- Challenge and session requests require same-origin JSON, reject extra authority fields and oversized bodies, and are rate limited.
+- The intermediate wallet-login token stays server-side and is revoked after the session attempt. The game-session token stays in browser memory; it is never put in URLs or local storage.
+- Disconnect, account change, page exit and session expiry close gameplay and attempt server-side revocation. Explicit logout does not claim successful server revocation if the database call fails.
+- Personal-message signing and NFT verification send no token transfers and charge no entry fee. The 20,000 TREE continuation endpoint still returns 503 and never authorizes payment.
+- Mysten packages are aligned: `@mysten/dapp-kit-react` 2.1.41, `@mysten/sui` 2.37.0, and `@mysten/wallet-standard` 0.21.35. The prior extension-only configuration is retained; no wallet warning is bypassed.
+
+### Verification evidence
+
+- 173 local regression tests pass; the game builds successfully.
+- GitHub Actions database run `39537761177` passed the complete gateway test using actual Ed25519 signatures and PostgreSQL 16. NFT ownership was a controlled fixture for positive-holder testing. It verified single-use nonce consumption under concurrency, hashed session persistence, intermediate-login revocation, non-holder denial, replay rejection and logout.
+- Final code commit `29c079b23d65475b1865cef26810f987236833be` passed database validation run `39538734561` and continuation check runs `39538734439` and `39538727708`. Netlify PR deploy `6ad83147aeae60cbc8b9f047` is ready and targets the development database branch.
+- Live smoke tests on both development URLs used newly generated, unfunded ephemeral keys. A real signature was accepted, a live mainnet query correctly denied the non-holder, and replay, cross-origin requests and forged eligibility were rejected. Payments remained disabled.
+- The deployed wallet chooser opens correctly. This cloud test browser has no installed Sui wallet, so a real NFTree-holder wallet acceptance test has not yet been performed.
+- Reusable non-payment smoke test: `node tests/integration/gateway-live-smoke.mjs`. It never prints or saves the ephemeral private key, nonce, signature or session token.
+
+### Remaining work and limitations
+
+- Test the preview with a real NFTree-holding wallet. Slush's reported security warning remains unresolved and must not be bypassed.
+- This preview recognizes directly wallet-owned NFTrees only. Kiosk and custody ownership remain unsupported and are disclosed on the gateway.
+- Paid continuation, trusted Game Over handling, new-run lifecycle and frontend payment checkout are the next milestone. No live 20,000 TREE payments are enabled.
+- Production remains at published deploy `6a9d79efef404400084bec93`; no production source, schema or website was changed.
 
 The migration is now in the automatic Netlify migration directory **on this development branch only**. A future merge and production publish would apply it to production; those actions are not authorized by the development-only task.
 
@@ -34,14 +61,11 @@ The migration is now in the automatic Netlify migration directory **on this deve
 - CI workflow: `.github/workflows/tree-database-validation.yml`.
 
 
-## Server-side logout contract (October 16)
+## Server-side logout contract
 
-- `app/game/game-logout-http.mjs` is a dependency-injected HTTP adapter. It requires an exact 64-hex-character game-session bearer token and calls the trusted `credential-revocation.mjs` service.
-- It never accepts a wallet address, run ID or client game-state payload as authority.
-- The handler is idempotent: a previously revoked token produces a generic logout response, while database failures return 503 without claiming success.
-- `netlify/functions/tree-logout.mjs` is intentionally disabled (503) until an isolated database and verified authentication lifecycle are deployed.
-- **Wallet extension disconnect currently only unmounts the Phaser game.** It does not yet revoke backend tokens. Do not advertise server logout as live.
-- Game-session logout and wallet-login revocation are distinct. A game-session bearer token cannot revoke another login token by simply naming it.
-- When enabling: use a same-origin authenticated request, never log bearer tokens, ensure server revocation succeeds before reporting it, and test logout under replay/concurrent requests.
+- `game-logout-http.mjs` accepts only an exact 64-hex-character bearer session token, validates same-origin requests, refuses client state bodies and uses transactional credential revocation.
+- Logout is idempotent; database errors return 503 without claiming success.
+- The deployed preview `tree-logout` adapter is protected by the same trusted build/runtime isolation guard as sign-in. Production remains disabled.
+- A game-session credential can revoke only that session. Intermediate wallet-login credentials are revoked by the server during session exchange.
 
 Production `main` and real TREE payments remain unchanged.
