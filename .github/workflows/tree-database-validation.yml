@@ -8,12 +8,16 @@ on:
       - 'db/staged-migrations/**'
       - 'netlify/database/migrations/**'
       - 'tests/sql/**'
+      - 'tests/integration/**'
+      - 'app/game/preview-database-status.mjs'
       - 'tests/staged-database-schema.test.mjs'
       - '.github/workflows/tree-database-validation.yml'
   pull_request:
     paths:
       - 'db/staged-migrations/**'
       - 'netlify/database/migrations/**'
+      - 'tests/integration/**'
+      - 'app/game/preview-database-status.mjs'
       - '.github/workflows/tree-database-validation.yml'
   workflow_dispatch:
 
@@ -71,6 +75,14 @@ jobs:
           SQL
       - name: Validate authentication and redemption against PostgreSQL
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/tree-auth-integration.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install locked dependencies for runtime database verification
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify runtime schema inspector against real PostgreSQL
+        run: node tests/integration/preview-database-status.mjs
       - name: Verify digest cannot be redeemed twice
         run: |
           psql -X -v ON_ERROR_STOP=1 <<'SQL'

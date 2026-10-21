@@ -22,7 +22,7 @@ export function createPreviewDatabaseStatusHandler({build, getPool}) {
         databaseIsolationConfirmed:true});
       const {rows} = await pool.query(`
         SELECT t.relname AS table_name, c.contype AS kind,
-          array(SELECT a.attname FROM unnest(c.conkey) WITH ORDINALITY k(attnum,n)
+          array(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY k(attnum,n)
             JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.attnum
             ORDER BY k.n) AS columns,
           f.relname AS referenced_table
