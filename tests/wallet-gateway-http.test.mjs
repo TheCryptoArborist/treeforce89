@@ -4,7 +4,7 @@ import {createWalletGatewayHttpHandler} from '../app/game/wallet-gateway-http.mj
 
 const origin='https://feature-tree-paid-continue--treeforce89.netlify.app';
 const build={branch:'feature/tree-paid-continue',context:'branch-deploy',deployId:'dev-id'};
-const runtime={deploy:{context:build.context,id:build.deployId}};
+const runtime={deploy:{context:build.context,id:build.deployId},site:{id:'35f5591a-5c7d-4bc6-ae9a-3e61e816b641'}};
 const request=(body={wallet:'0x1234'},headers={},url=origin)=>new Request(url,{method:'POST',
   headers:{origin,'content-type':'application/json',...headers},body:JSON.stringify(body)});
 
@@ -13,7 +13,7 @@ test('production and wrong deployment cannot issue any challenge or session',asy
    [{...build,context:'production'},runtime,origin],
    [{...build,branch:'main'},runtime,origin],
    [build,{deploy:{context:'production',id:'dev-id'}},origin],
-   [build,{deploy:{context:'branch-deploy',id:'other'}},origin],
+   [build,{...runtime,site:{id:'another-site'}},origin],
    [build,runtime,'https://treeforce89.netlify.app'],
  ]) {
    let calls=0;
@@ -21,6 +21,16 @@ test('production and wrong deployment cannot issue any challenge or session',asy
    assert.equal((await handler(request(undefined,{},url),ctx)).status,503);
    assert.equal(calls,0);
  }
+});
+
+test('Netlify may reuse an approved branch artifact for a later nonproduction deploy',async()=>{
+ const handler=createWalletGatewayHttpHandler({action:'challenge',build,
+   getService:()=>({issue:async()=>({nonce:'a'.repeat(64)})})});
+ const later={...runtime,deploy:{context:'branch-deploy',id:'later-deploy'}};
+ assert.equal((await handler(request(),later)).status,201);
+ const prOrigin='https://deploy-preview-7--treeforce89.netlify.app';
+ const prRuntime={...runtime,deploy:{context:'deploy-preview',id:'pr-deploy'}};
+ assert.equal((await handler(request(undefined,{origin:prOrigin},prOrigin),prRuntime)).status,201);
 });
 
 test('same-origin JSON challenge requires only a valid wallet address',async()=>{
