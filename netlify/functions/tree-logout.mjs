@@ -1,17 +1,11 @@
-/**
- * TREE FORCE '89 logout endpoint is intentionally disabled.
- * Server-side revocation logic is tested independently, but the public
- * endpoint must not claim success until the isolated database, session
- * issuance and authentication lifecycle are deployed.
- */
-export default async function handler(request) {
-  const headers = {"Cache-Control":"no-store","Content-Type":"application/json"};
-  if (request.method !== "POST") {
-    return Response.json({error:"Method not allowed"},{status:405,headers:{...headers,Allow:"POST"}});
-  }
-  return Response.json({
-    enabled:false,
-    loggedOut:false,
-    error:"Server-side game logout is not enabled on this deployment.",
-  },{status:503,headers});
+import build from '../generated/tree-deploy-context.json' with {type:'json'};
+import {previewAccessAllowed} from '../../app/game/preview-access.mjs';
+import {createGameLogoutHttpHandler} from '../../app/game/game-logout-http.mjs';
+import {getGatewayService} from '../gateway-runtime.mjs';
+
+export default async function handler(request,context) {
+  if(!previewAccessAllowed(build,context,request))return Response.json({enabled:false,loggedOut:false},{status:503,headers:{'Cache-Control':'no-store'}});
+  return createGameLogoutHttpHandler({revoker:{revoke:input=>
+    getGatewayService(new URL(request.url).origin).revoke(input)}})(request);
 }
+export const config={rateLimit:{action:'rate_limit',aggregateBy:'ip',windowSize:60,windowLimit:20}};

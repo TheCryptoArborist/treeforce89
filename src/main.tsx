@@ -4,6 +4,8 @@ import NFTreeGateway from "../app/NFTreeGateway";
 import PassiveWalletDiagnostics from "../app/PassiveWalletDiagnostics";
 import ConnectionOnlyDiagnostics from "../app/ConnectionOnlyDiagnostics";
 import "../app/globals.css";
+import {DAppKitProvider} from '@mysten/dapp-kit-react';
+import {dAppKit} from '../app/dapp-kit';
 
 function App() {
   return (
@@ -31,5 +33,5 @@ function App() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><App /></StrictMode>,
+  <StrictMode><DAppKitProvider dAppKit={dAppKit}><App /></DAppKitProvider></StrictMode>,
 );

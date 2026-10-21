@@ -13,11 +13,12 @@
     "test": "npm run build",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
-    "test:payments": "node --test tests/*.test.mjs"
+    "test:payments": "node scripts/write-tree-deploy-context.mjs && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@mysten/sui": "2.26.2",
-    "@mysten/wallet-standard": "0.21.18",
+    "@mysten/dapp-kit-react": "2.1.41",
+    "@mysten/sui": "2.37.0",
+    "@mysten/wallet-standard": "0.21.35",
     "@netlify/database": "2.0.1",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",

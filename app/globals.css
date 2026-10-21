@@ -41,6 +41,10 @@ button,canvas{touch-action:none}
 .nftree-gateway button:disabled{opacity:.55;cursor:not-allowed}
 .nftree-gateway [role=alert]{color:#ff6b62}
 .nftree-gateway a{color:#f2c94c}
+.nftree-gateway .nftree-secondary{width:auto;min-height:32px;padding:6px 16px;background:transparent;color:#b9c9b6;border-color:#315a3a}
+.nftree-gateway .nftree-signin-note,.nftree-gateway small{font-size:11px;line-height:1.5;max-width:330px;color:#b9c9b6}
+.nftree-gateway .nftree-connected{color:#f2c94c;font-size:12px}
+.nftree-gateway{overflow-y:auto;gap:12px}
 
 .nftree-diagnostic{width:min(100%,350px);padding:10px;border:1px solid #f2c94c;border-radius:6px;background:#081a12;display:flex;flex-direction:column;gap:6px;text-align:left;font-size:11px;color:#fff7df}
 .nftree-diagnostic strong{color:#f2c94c}

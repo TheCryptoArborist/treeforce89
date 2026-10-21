@@ -29,7 +29,7 @@ test("authenticated holder receives server-created session after on-chain owners
   assert.match(session.sessionToken,/^[a-f0-9]{64}$/);
   assert.match(session.runId,/^grove-[a-f0-9]{32}$/);
   assert.equal(calls.chain.length,1);
-  assert.equal(calls.chain[0].filter.StructType,NFTREE_TYPE);
+  assert.equal(calls.chain[0].type,NFTREE_TYPE);
   assert.equal(calls.sql[0].params[0],createHash("sha256").update(loginToken).digest("hex"));
   assert.equal(calls.sql[1].params.includes(session.sessionToken),false);
 });

@@ -16,8 +16,8 @@ test("approved Netlify migration exactly matches validated staged SQL",()=>{
  assert.equal(existsSync(promoted),true);
  assert.equal(readFileSync(promoted,"utf8"),migration);
 });
-test("public session and continuation endpoints remain fail-closed",()=>{
- assert.match(publicSession,/status:503/);
+test("public session uses guarded authentication and continuation remains disabled",()=>{
+ assert.match(publicSession,/createWalletGatewayHttpHandler/);
  assert.match(publicContinue,/status:503/);
  assert.doesNotMatch(publicSession,/sessionToken:/);
  assert.doesNotMatch(publicContinue,/authorized:true/);

@@ -24,7 +24,7 @@ export function createGameSessionIssuer({loginStore,ownershipChecker,pool,now=()
       if(!login?.wallet)throw new Error("Wallet login not authenticated");
       const wallet=normalizeSuiAddress(login.wallet);
       const eligible=await ownershipChecker({wallet});
-      if(eligible!==true)throw new Error("NFTree ownership required");
+      if(eligible!==true)throw Object.assign(new Error("NFTree ownership required"),{code:'NFTREE_REQUIRED'});
 
       const sessionId=randomBytes(24).toString("hex");
       const runId="grove-"+randomBytes(16).toString("hex");

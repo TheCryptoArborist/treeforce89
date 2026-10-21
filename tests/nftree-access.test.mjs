@@ -18,7 +18,7 @@ function fakeClient(pages) {
 test("direct NFTree holder qualifies", async () => {
   const client = fakeClient([{objects:[{type:NFTREE_TYPE}],cursor:null}]);
   assert.equal(await checkDirectNFTreeOwnership({client,wallet}),true);
-  assert.equal(client.calls[0].filter.StructType,NFTREE_TYPE);
+  assert.equal(client.calls[0].type,NFTREE_TYPE);
   assert.equal(client.calls[0].owner.length,66);
 });
 test("non-holder does not qualify",async()=>{

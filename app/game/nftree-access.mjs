@@ -27,7 +27,7 @@ export async function checkDirectNFTreeOwnership({ client, wallet, network = "ma
   for (let page = 0; page < 200; page++) {
     const result = await client.core.listOwnedObjects({
       owner,
-      filter: { StructType: NFTREE_TYPE },
+      type: NFTREE_TYPE,
       limit: 50,
       ...(cursor ? { cursor } : {}),
     });
