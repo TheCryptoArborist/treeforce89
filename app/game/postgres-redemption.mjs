@@ -34,7 +34,7 @@ export function createPostgresContinuationStore(pool) {
 
         const locked = await db.query(
           `SELECT wallet, run_id, continuation_number, game_over, cleared, continue_pending
-           FROM tree_game_sessions WHERE session_id = $1 FOR UPDATE`,
+           FROM tree_game_sessions WHERE session_id = $1 AND expires_at>clock_timestamp() FOR UPDATE`,
           [sessionId],
         );
         const session = locked.rows?.[0];
@@ -74,6 +74,7 @@ export function createPostgresContinuationStore(pool) {
                continuation_number = continuation_number + 1
            WHERE session_id = $1 AND continuation_number = $2
              AND continue_pending = TRUE AND game_over = TRUE AND cleared = FALSE
+             AND expires_at>clock_timestamp()
            RETURNING session_id`,
           [sessionId, continuationNumber],
         );

@@ -26,9 +26,12 @@ export function createMainnetTransactionReader(client) {
     }
     const tx = result.Transaction;
     if (tx.digest !== digest) throw new Error("Digest mismatch");
-    if (!tx.effects || tx.effects.status?.$kind !== "Success") {
+    if (tx.status?.success !== true || !tx.effects || tx.effects.status?.success !== true) {
       throw new Error("Transaction effects do not confirm success");
     }
+    if(typeof tx.checkpoint!=='string' || !/^\d+$/.test(tx.checkpoint) ||
+      !Number.isSafeInteger(tx.timestampMs) || tx.timestampMs<=0)
+      throw new Error('Transaction has not been checkpointed');
     if (typeof tx.transaction?.sender !== "string") {
       throw new Error("Missing transaction sender");
     }
@@ -36,21 +39,21 @@ export function createMainnetTransactionReader(client) {
       throw new Error("Missing transaction balance changes");
     }
     const balanceChanges = tx.balanceChanges.map(change => {
-      if (typeof change.coinType !== "string" || typeof change.amount !== "string") {
+      if (typeof change.coinType !== "string" || typeof change.amount !== "string" ||
+        !/^-?\d+$/.test(change.amount) || typeof change.address!=='string') {
         throw new Error("Invalid transaction balance change");
-      }
-      if (!change.owner || change.owner.$kind !== "AddressOwner" || !change.owner.AddressOwner) {
-        return {coinType:change.coinType,amount:change.amount,owner:{kind:"Other"}};
       }
       return {
         coinType:change.coinType,
         amount:change.amount,
-        owner:{kind:"AddressOwner",address:normalizeSuiAddress(change.owner.AddressOwner)},
+        owner:{kind:"AddressOwner",address:normalizeSuiAddress(change.address)},
       };
     });
     return {
       network:"mainnet",
       success:true,
+      checkpoint:tx.checkpoint,
+      timestampMs:tx.timestampMs,
       sender:normalizeSuiAddress(tx.transaction.sender),
       balanceChanges,
     };

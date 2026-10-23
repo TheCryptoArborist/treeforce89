@@ -13,6 +13,9 @@ on:
       - 'app/game/wallet-gateway*.mjs'
       - 'app/game/game-run*.mjs'
       - 'app/game/authenticated-session.mjs'
+      - 'app/game/continuation*.mjs'
+      - 'app/game/postgres-redemption.mjs'
+      - 'app/game/mainnet-transaction-reader.mjs'
       - 'app/game/nftree-access.mjs'
       - 'tests/staged-database-schema.test.mjs'
       - '.github/workflows/tree-database-validation.yml'
@@ -25,6 +28,9 @@ on:
       - 'app/game/wallet-gateway*.mjs'
       - 'app/game/game-run*.mjs'
       - 'app/game/authenticated-session.mjs'
+      - 'app/game/continuation*.mjs'
+      - 'app/game/postgres-redemption.mjs'
+      - 'app/game/mainnet-transaction-reader.mjs'
       - 'app/game/nftree-access.mjs'
       - '.github/workflows/tree-database-validation.yml'
   workflow_dispatch:
@@ -95,6 +101,8 @@ jobs:
         run: node tests/integration/wallet-gateway.mjs
       - name: Verify authenticated new-run rotation against PostgreSQL
         run: node tests/integration/game-run.mjs
+      - name: Verify staged continuation receipts and atomic redemption
+        run: node tests/integration/continuation.mjs
       - name: Verify digest cannot be redeemed twice
         run: |
           psql -X -v ON_ERROR_STOP=1 <<'SQL'

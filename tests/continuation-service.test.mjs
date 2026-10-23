@@ -7,17 +7,17 @@ const digest="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijk";
 const wallet="0x1234";
 const session={
   sessionId:"session-1",wallet,runId:"grove-123",wave:5,
-  continuationNumber:0,gameOver:true,cleared:false,continuePending:true,
+  continuationNumber:0,gameOver:true,cleared:false,continuePending:true,createdAt:1700000000000,expiresAt:1900000000000,
 };
 const payment={
   $kind:"Transaction",
   Transaction:{
     digest,
-    effects:{status:{$kind:"Success"}},
+    status:{success:true},effects:{status:{success:true}},checkpoint:"123",timestampMs:1700000000001,
     transaction:{sender:wallet},
     balanceChanges:[
-      {coinType:TREE_COIN_TYPE,amount:"-20000000000000",owner:{$kind:"AddressOwner",AddressOwner:wallet}},
-      {coinType:TREE_COIN_TYPE,amount:"20000000000000",owner:{$kind:"AddressOwner",AddressOwner:TREE_PAYMENT_RECIPIENT}},
+      {coinType:TREE_COIN_TYPE,amount:"-20000000000000",address:wallet},
+      {coinType:TREE_COIN_TYPE,amount:"20000000000000",address:TREE_PAYMENT_RECIPIENT},
     ],
   },
 };
@@ -70,7 +70,7 @@ test("failed chain transaction never reaches redemption store",async()=>{
 });
 test("wrong recipient rejected before redemption",async()=>{
   const ctx=mock({tx:{$kind:"Transaction",Transaction:{...payment.Transaction,balanceChanges:[
-    {coinType:TREE_COIN_TYPE,amount:"20000000000000",owner:{$kind:"AddressOwner",AddressOwner:"0x999"}},
+    {coinType:TREE_COIN_TYPE,amount:"20000000000000",address:"0x999"},
   ]}}});
   await assert.rejects(ctx.service.redeem({digest,runId:session.runId,authContext:{valid:true}}),/Insufficient/);
   assert.equal(ctx.counts().statements.length,0);

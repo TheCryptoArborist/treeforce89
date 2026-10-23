@@ -1,6 +1,6 @@
 # TREE FORCE '89 — Paid continuation integration
 
-Status (October 23, 2026): **NFTree sign-in and authenticated new-run rotation are active on the development preview. Paid continuation remains disabled.**
+Status (October 23, 2026): **NFTree sign-in and authenticated new-run rotation are active on the development preview. Checkout review is available after Game Over; wallet transfers and paid continuation remain disabled.**
 
 ## Product contract
 
@@ -134,3 +134,49 @@ contracts, production denial, credential expiry, mainnet ownership failure,
 concurrent rotation, database rollback and logout races. PostgreSQL tests run
 in disposable CI storage; positive NFT holdings are fixtures. Real holder and
 Slush acceptance remain separate from these automated checks.
+
+
+## Checkout review and receipt hardening (October 23, 2026)
+
+A lost run's 20,000 TREE panel now opens a React checkout review. It explains
+three restored lives, retaining the current score/wave, mainnet and separate
+SUI gas. Its payment button is disabled and has no signing or execution handler.
+Victory does not expose this offer. Closing the review returns to the debrief.
+
+`tree-continue-offer` authenticates the current session and run through the same
+branch/site/origin/input guard as restart. It only reads the session and mainnet
+coin metadata; it does not set Game Over, eligibility or redemption state. Both
+the server and browser require `enabled:false`. The proposed recipient remains
+explicitly unconfirmed. Browser review rejects substituted amounts, recipients,
+runs, networks or activation flags.
+
+Mainnet coin metadata returned **6 decimals** for the canonical TREE type:
+20,000 TREE is **20,000,000,000 base units**. Metadata ID:
+`0xe4dcc3ff58d2069c18b024fb69c925abb95748dbeb16a99258e1d3433c140902`.
+This was a read-only query; no tokens moved.
+
+The staged receipt reader now uses the installed Sui 2.37.0 Core response:
+`Transaction.status.success`, `effects.status.success` and balance changes with
+`address`, rather than legacy tagged status/owner fields. It requires a
+checkpoint and timestamp, checks successful effects and validates all amounts.
+Its actual mainnet read was checked using transaction
+`77DCKTD1egsqSEYB1WaSurYNtnrdi85ArkjqP2hgQ4op`, checkpoint `337313991`, timestamp
+`1792781491679`. This transaction established SDK/receipt compatibility; it was
+not a TREE checkout payment and was not redeemed.
+
+The verifier rejects receipts outside the authenticated run's creation/expiry
+window. Atomic redemption rechecks expiry under the database row lock and again
+in the conditional update, so a slow fullnode query cannot redeem an expired or
+logged-out session.
+
+Disposable PostgreSQL tests cover SDK-shaped TREE receipt verification at six
+decimals, concurrent redemption, duplicate receipts, multiple continuations,
+wrong sender/coin/recipient/amount, old or uncheckpointed receipts and
+expiry/logout during the chain lookup. Positive receipts and server eligibility
+are fixtures; no real wallet transaction or hosted payment row is created.
+
+Still required before any activation: real holder/Slush acceptance, confirmation
+of the recipient, a reviewed Game Over eligibility policy, wallet execution and
+the authenticated authorization bridge into Phaser. `tree-continue` remains
+unchanged and returns 503 / `authorized:false`. No migration was added and no
+production branch, schema or deployment was modified.

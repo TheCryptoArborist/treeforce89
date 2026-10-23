@@ -26,6 +26,8 @@ export async function verifyAndRedeemContinuation({
   if (session.continuePending !== true || session.gameOver !== true || session.cleared === true) {
     throw new Error("Session is not awaiting continuation");
   }
+  if(!Number.isSafeInteger(session.createdAt) || !Number.isSafeInteger(session.expiresAt) ||
+    session.createdAt>=session.expiresAt)throw new Error('Verified session lifetime required');
   const verified = validateContinuationClaim(claim, {
     wallet: session.wallet,
     runId: session.runId,
@@ -40,6 +42,10 @@ export async function verifyAndRedeemContinuation({
   if (!transaction || transaction.network !== "mainnet" || transaction.success !== true) {
     throw new Error("No successful finalized mainnet transaction");
   }
+  if(typeof transaction.checkpoint!=='string' || !/^\d+$/.test(transaction.checkpoint) ||
+    !Number.isSafeInteger(transaction.timestampMs) ||
+    transaction.timestampMs<session.createdAt || transaction.timestampMs>=session.expiresAt)
+    throw new Error('Payment is outside this authenticated run lifetime or not checkpointed');
   if (normalizeSuiAddress(transaction.sender) !== verified.wallet) {
     throw new Error("Payment sender does not match game wallet");
   }

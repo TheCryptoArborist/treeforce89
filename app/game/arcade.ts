@@ -189,8 +189,14 @@ class GameOverScene extends Phaser.Scene{
   this.add.rectangle(240,376,360,188,ph.panel,.94).setStrokeStyle(1,ph.gold,.85);
   this.add.text(240,289,"CANOPY DEBRIEF",font(11,pc.gold)).setOrigin(.5);
   this.add.text(240,312,`SCORE              ${data.run.score.toLocaleString()}\nLAST SECTOR        ${String(data.run.wave+1).padStart(2,"0")}  ${wave}\nBLIGHT CLEARED     ${data.run.kills}\nSHOTS / HITS       ${data.run.shotsFired} / ${data.run.shotsHit}\nACCURACY           ${accuracy}%\nPERFECT SHIELDS    ${data.run.perfect}\nMAX GROWTH         ${stages[data.run.maxStage].name}`,font(11,pc.text)).setOrigin(.5,0).setAlign("left").setLineSpacing(5);
-  // Informational only: no paid continuation until server-side verification exists.
-  if(!data.cleared){this.add.rectangle(240,488,330,48,ph.panel,.98).setStrokeStyle(2,ph.gold,.75);this.add.text(240,480,"CONTINUE  //  20,000 TREE",font(13,pc.gold)).setOrigin(.5);this.add.text(240,497,"PAYMENTS DISABLED IN THIS PREVIEW",font(9,pc.muted)).setOrigin(.5)}
+  // Checkout review is read-only; it cannot request a signature or restore lives.
+  if(!data.cleared){
+   const review=this.add.rectangle(240,488,330,48,ph.panel,.98).setStrokeStyle(2,ph.gold,.75);
+   this.add.text(240,480,"CONTINUE  //  20,000 TREE",font(13,pc.gold)).setOrigin(.5);
+   this.add.text(240,497,"VIEW DETAILS // PAYMENTS DISABLED",font(9,pc.muted)).setOrigin(.5);
+   const requestCheckout=this.game.registry.get("requestCheckout");
+   if(this.game.registry.get("serverRunId") && typeof requestCheckout==='function')review.setInteractive().on("pointerdown",()=>requestCheckout());
+  }
   const replay=this.add.rectangle(240,550,266,44,ph.bgSoft).setStrokeStyle(3,ph.green).setInteractive();
   const title=this.add.rectangle(240,603,266,38,ph.panel).setStrokeStyle(2,ph.cyan).setInteractive();
   this.add.text(240,550,data.cleared?"RUN THE CANOPY AGAIN":"START NEW RUN",font(13,pc.gold)).setOrigin(.5);
@@ -244,11 +250,12 @@ function forest(s:Phaser.Scene){
 }
 function leafBurst(s:Phaser.Scene,x:number,y:number,count=10){for(let i=0;i<count;i++){const p=s.add.rectangle(x,y,3+i%3,6,i%3===0?ph.gold:ph.green).setDepth(10).setAngle(i*37);s.tweens.add({targets:p,x:x+Phaser.Math.Between(-65,65),y:y+Phaser.Math.Between(-70,55),angle:i*90,alpha:0,duration:Phaser.Math.Between(280,620),onComplete:()=>p.destroy()})}}
 function tone(_s:Phaser.Scene,f:number,d=.05,v=.04){if(sfxMuted)return;try{const c=ensureAudio();const o=c.createOscillator(),gain=c.createGain();o.type=f<170?"sawtooth":f>600?"triangle":"square";o.frequency.setValueAtTime(f,c.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(45,f*.72),c.currentTime+d);gain.gain.setValueAtTime(v,c.currentTime);gain.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);o.connect(gain).connect(c.destination);o.start();o.stop(c.currentTime+d)}catch{}}
-export function createCanopyGame(parent:HTMLElement,options?:{serverRunId?:string;initialScene?:"game"|"title";requestNewRun?:(destination:"game"|"title")=>Promise<void>}){
+export function createCanopyGame(parent:HTMLElement,options?:{serverRunId?:string;initialScene?:"game"|"title";requestNewRun?:(destination:"game"|"title")=>Promise<void>;requestCheckout?:()=>void}){
  if(options?.serverRunId && !/^grove-[a-f0-9]{32}$/.test(options.serverRunId))throw new Error("Invalid server run identifier");
  return new Phaser.Game({type:Phaser.AUTO,width:W,height:H,parent,backgroundColor:pc.bg,pixelArt:true,roundPixels:true,physics:{default:"arcade",arcade:{gravity:{x:0,y:0},debug:false}},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:[BootScene,TitleScene,GameScene,GameOverScene],fps:{target:60,forceSetTimeOut:false},input:{activePointers:3},callbacks:{preBoot:game=>{
   if(options?.serverRunId)game.registry.set("serverRunId",options.serverRunId);
   game.registry.set("initialScene",options?.initialScene==='game'?'game':'title');
   if(options?.requestNewRun)game.registry.set("requestNewRun",options.requestNewRun);
+  if(options?.requestCheckout)game.registry.set("requestCheckout",options.requestCheckout);
  }}});
 }

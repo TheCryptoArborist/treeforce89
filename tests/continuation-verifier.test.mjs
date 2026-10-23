@@ -6,8 +6,8 @@ import {TREE_COIN_TYPE,TREE_PAYMENT_RECIPIENT} from "../app/game/tree-payment.mj
 const digest="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijk";
 const wallet="0x1234";
 const claim={digest,wallet,runId:"grove-123"};
-const session={sessionId:"server-session-1",wallet,runId:"grove-123",wave:4,gameOver:true,cleared:false,continuePending:true,continuationNumber:1};
-const goodTx={network:"mainnet",success:true,sender:wallet,balanceChanges:[{coinType:TREE_COIN_TYPE,owner:{kind:"AddressOwner",address:TREE_PAYMENT_RECIPIENT},amount:"20000000000000"}]};
+const session={sessionId:"server-session-1",wallet,runId:"grove-123",wave:4,gameOver:true,cleared:false,continuePending:true,continuationNumber:1,createdAt:1700000000000,expiresAt:1900000000000};
+const goodTx={network:"mainnet",success:true,checkpoint:"123",timestampMs:1700000000001,sender:wallet,balanceChanges:[{coinType:TREE_COIN_TYPE,owner:{kind:"AddressOwner",address:TREE_PAYMENT_RECIPIENT},amount:"20000000000000"}]};
 const make=({tx=goodTx,storeResult=true,overrideSession=session}={})=>{
  let fetchCount=0,consumeCount=0;
  return {
@@ -58,4 +58,11 @@ test("rejects duplicate redemption",async()=>{
 });
 test("fails closed without trusted dependencies",async()=>{
  await assert.rejects(verifyAndRedeemContinuation({claim,session,decimals:9}),/Trusted verification/);
+});
+test('old receipts, receipts after expiry and uncheckpointed receipts never reach redemption',async()=>{
+ for(const patch of [{timestampMs:session.createdAt-1},{timestampMs:session.expiresAt},{checkpoint:null},{timestampMs:null}]){
+   const ctx=make({tx:{...goodTx,...patch}});
+   await assert.rejects(verifyAndRedeemContinuation(ctx.deps),/lifetime|checkpointed/);
+   assert.equal(ctx.counts().consumeCount,0);
+ }
 });

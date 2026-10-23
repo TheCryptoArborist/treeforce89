@@ -21,7 +21,7 @@ export function createAuthenticatedSessionResolver(pool) {
     const hash = createHash("sha256").update(token, "utf8").digest("hex");
     const result = await pool.query(
       `SELECT session_id, wallet, run_id, wave, continuation_number,
-              game_over, cleared, continue_pending
+              game_over, cleared, continue_pending, created_at, expires_at
        FROM tree_game_sessions
        WHERE session_token_hash = $1 AND expires_at > NOW()`,
       [hash],
@@ -30,6 +30,9 @@ export function createAuthenticatedSessionResolver(pool) {
       throw Object.assign(new Error("Session expired or not authenticated"),{code:'SESSION_REQUIRED'});
     }
     const row = result.rows[0];
+    const createdAt=new Date(row.created_at).getTime(),expiresAt=new Date(row.expires_at).getTime();
+    if(!Number.isSafeInteger(createdAt) || !Number.isSafeInteger(expiresAt) || createdAt>=expiresAt)
+      throw new Error('Invalid authoritative session lifetime');
     if (!Number.isSafeInteger(Number(row.wave)) || Number(row.wave) < 0 ||
         !Number.isSafeInteger(Number(row.continuation_number)) || Number(row.continuation_number) < 0) {
       throw new Error("Invalid authoritative session state");
@@ -43,6 +46,8 @@ export function createAuthenticatedSessionResolver(pool) {
       gameOver: row.game_over === true,
       cleared: row.cleared === true,
       continuePending: row.continue_pending === true,
+      createdAt,
+      expiresAt,
     };
   };
 }

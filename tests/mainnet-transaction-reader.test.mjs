@@ -7,9 +7,9 @@ const successful={
   $kind:"Transaction",
   Transaction:{
     digest,
-    effects:{status:{$kind:"Success"}},
+    status:{success:true},effects:{status:{success:true}},checkpoint:"123",timestampMs:1700000000001,
     transaction:{sender:"0x1234"},
-    balanceChanges:[{coinType:"0x2::sui::SUI",amount:"-1000",owner:{$kind:"AddressOwner",AddressOwner:"0x1234"}}],
+    balanceChanges:[{coinType:"0x2::sui::SUI",amount:"-1000",address:"0x1234"}],
   },
 };
 const make=(response=successful,network="mainnet")=>{
@@ -41,7 +41,7 @@ test("rejects wrong digest",async()=>{
  await assert.rejects(createMainnetTransactionReader(make({$kind:"Transaction",Transaction:{...successful.Transaction,digest:"different"}}).client)(digest),/Digest mismatch/);
 });
 test("rejects missing successful effects",async()=>{
- await assert.rejects(createMainnetTransactionReader(make({$kind:"Transaction",Transaction:{...successful.Transaction,effects:{status:{$kind:"Failure"}}}}).client)(digest),/effects/);
+ await assert.rejects(createMainnetTransactionReader(make({$kind:"Transaction",Transaction:{...successful.Transaction,effects:{status:{success:false}}}}).client)(digest),/effects/);
 });
 test("rejects missing sender",async()=>{
  await assert.rejects(createMainnetTransactionReader(make({$kind:"Transaction",Transaction:{...successful.Transaction,transaction:{}}}).client)(digest),/sender/);
@@ -51,4 +51,9 @@ test("rejects missing balance changes",async()=>{
 });
 test("rejects malformed balance change",async()=>{
  await assert.rejects(createMainnetTransactionReader(make({$kind:"Transaction",Transaction:{...successful.Transaction,balanceChanges:[{amount:123}]}}).client)(digest),/balance change/);
+});
+test('rejects uncheckpointed transactions and legacy owner fields',async()=>{
+ for(const patch of [{checkpoint:null},{timestampMs:null},{status:{success:false}},
+   {balanceChanges:[{coinType:'0x2::sui::SUI',amount:'10',owner:{$kind:'AddressOwner',AddressOwner:'0x1234'}}]}])
+   await assert.rejects(createMainnetTransactionReader(make({$kind:'Transaction',Transaction:{...successful.Transaction,...patch}}).client)(digest));
 });

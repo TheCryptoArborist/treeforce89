@@ -4,6 +4,7 @@ import {useCurrentAccount,useDAppKit,useWalletConnection} from '@mysten/dapp-kit
 import {ConnectButton} from '@mysten/dapp-kit-react/ui';
 import {authenticateGateway,revokeGatewaySession,isGatewaySessionCurrent,restartGatewayRun} from './game/gateway-client.mjs';
 import CanopyGame from './CanopyGame';
+import ContinuationReview from './ContinuationReview';
 
 type Session={wallet:string;sessionToken:string;runId:string;expiresAt:number};
 
@@ -20,6 +21,8 @@ export default function NFTreeGateway() {
   const [error,setError]=useState('');
   const [initialScene,setInitialScene]=useState<'game'|'title'>('title');
   const restarting=useRef(false);
+  const [checkoutOpen,setCheckoutOpen]=useState(false);
+  useEffect(()=>setCheckoutOpen(false),[session?.runId]);
 
   useEffect(()=>{
     // Account changes or disconnect immediately unmount the game. In-flight
@@ -101,7 +104,8 @@ export default function NFTreeGateway() {
   if(session && isGatewaySessionCurrent(session,account?.address)) {
     return <div className="nftree-game-shell">
       <div className="nftree-wallet-bar"><span>NFTree verified · {session.wallet.slice(0,6)}…{session.wallet.slice(-4)}</span><button type="button" onClick={disconnect}>Disconnect</button></div>
-      <CanopyGame key={session.runId} serverRunId={session.runId} initialScene={initialScene} onNewRunRequested={restart} />
+      <CanopyGame key={session.runId} serverRunId={session.runId} initialScene={initialScene} onNewRunRequested={restart} onContinueRequested={()=>setCheckoutOpen(true)} />
+      {checkoutOpen&&<ContinuationReview session={session} onClose={()=>setCheckoutOpen(false)} />}
     </div>;
   }
   return <div className="nftree-gateway" aria-label="NFTree Gateway">

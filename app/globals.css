@@ -46,6 +46,18 @@ button,canvas{touch-action:none}
 .nftree-gateway .nftree-connected{color:#f2c94c;font-size:12px}
 .nftree-gateway{overflow-y:auto;gap:12px}
 
+.continuation-backdrop{position:absolute;inset:0;z-index:40;display:grid;place-items:center;padding:16px;background:#020906ed;overflow-y:auto}
+.continuation-review{width:min(100%,380px);padding:24px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;border:2px solid var(--gold);border-radius:10px;background:var(--panel);text-align:center;box-shadow:0 12px 36px #0008}
+.continuation-review h2{font-size:22px;color:var(--green);margin:0}
+.continuation-review p{font-size:13px;line-height:1.5;margin:0}
+.continuation-review .continuation-price{font-size:26px;font-weight:bold;color:var(--gold)}
+.continuation-review .continuation-note{font-size:11px;color:var(--muted)}
+.continuation-review code{font-size:10px;overflow-wrap:anywhere;line-height:1.5;color:var(--muted);max-width:100%}
+.continuation-review button{width:100%;min-height:42px;border:1px solid var(--green);border-radius:6px;padding:8px;background:#205f35;color:var(--text);font-weight:bold;cursor:pointer}
+.continuation-review button:disabled{background:#18251e;color:var(--muted);border-color:#315a3a;cursor:not-allowed}
+.continuation-review [role=alert]{color:var(--danger)}
+.continuation-review button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
 .nftree-diagnostic{width:min(100%,350px);padding:10px;border:1px solid #f2c94c;border-radius:6px;background:#081a12;display:flex;flex-direction:column;gap:6px;text-align:left;font-size:11px;color:#fff7df}
 .nftree-diagnostic strong{color:#f2c94c}
 .nftree-diagnostic small{color:#b9c9b6;line-height:1.4}

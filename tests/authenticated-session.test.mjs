@@ -5,7 +5,7 @@ import {createAuthenticatedSessionResolver} from "../app/game/authenticated-sess
 
 const token="a".repeat(64);
 const row={session_id:"session-1",wallet:"0x1234",run_id:"grove-123",wave:5,
-  continuation_number:2,game_over:true,cleared:false,continue_pending:true};
+  created_at:new Date(1700000000000),expires_at:new Date(1900000000000),continuation_number:2,game_over:true,cleared:false,continue_pending:true};
 function makePool(rows=[row]){
  const calls=[];
  return {calls,query:async(sql,params)=>{calls.push({sql,params});return {rows}}};
