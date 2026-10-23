@@ -45,7 +45,7 @@ Player flow: Connect Wallet → Verify NFTree & Play → approve a personal-mess
 
 - Test the preview with a real NFTree-holding wallet. Slush's reported security warning remains unresolved and must not be bypassed.
 - This preview recognizes directly wallet-owned NFTrees only. Kiosk and custody ownership remain unsupported and are disclosed on the gateway.
-- New-run lifecycle was completed and verified on October 23 (see below). Paid continuation, trusted Game Over handling and frontend payment checkout remain unfinished. No live 20,000 TREE payments are enabled.
+- New-run lifecycle and checkout review were completed on October 23 (see below). Trusted Game Over handling, wallet payment execution and authenticated continuation approval remain unfinished. No live 20,000 TREE payments are enabled.
 - Production remains at published deploy `6a9d79efef404400084bec93`; no production source, schema or website was changed.
 
 The migration is now in the automatic Netlify migration directory **on this development branch only**. A future merge and production publish would apply it to production; those actions are not authorized by the development-only task.
@@ -62,6 +62,17 @@ The migration is now in the automatic Netlify migration directory **on this deve
 - The branch database status remains HTTP 200 / `ready:true`, with all four tables and all eight constraint checks passing.
 - The gateway page loads after deployment. A real holder's full play/restart flow and the Slush warning remain unverified. Paid checkout remains unfinished and disabled; browser-calculated Game Over is not independently verified by the server.
 - Production `main` remains at `f04261491ae78dc21cb87842bc3a0b1da81cefc6`, published deploy `6a9d79efef404400084bec93`.
+
+## Checkout review and receipt verification (October 23, 2026)
+
+- Development code commit `5ab4962ee7763bd99ea5fdf0a9b5ebd49f95240a` adds a read-only checkout review opened from a lost run's 20,000 TREE panel. The payment button is disabled with no signing/execution handler. The proposed recipient is labeled unconfirmed.
+- `tree-continue-offer` requires the current bearer session and run, derives TREE decimals from mainnet metadata, and always returns `enabled:false`. It cannot write Game Over or redemption state. Mainnet metadata confirmed six decimals: 20,000 TREE = 20,000,000,000 base units.
+- The staged Sui reader now matches the installed Core API status and address fields, requires a checkpoint/timestamp, and rejects malformed amounts. A read-only real mainnet receipt check passed for `77DCKTD1egsqSEYB1WaSurYNtnrdi85ArkjqP2hgQ4op`; this was not a TREE checkout payment and was not redeemed.
+- Session creation/expiry timestamps now bound accepted receipts. The redemption transaction rechecks current session expiry under its row lock and conditional update.
+- 189 local tests and the game build pass. Continuation checks `40007796610` / `40007789710` and PostgreSQL validation `40007796654` / `40007789935` all passed. The new PostgreSQL step validates six-decimal TREE receipts, concurrent one-time redemption, duplicate refusal, multiple continues, bad receipt fields, and expiry/logout during a chain lookup. Positive chain receipts and eligible Game Over state were fixtures.
+- Live checks passed on both development URLs: unknown credentials are rejected through the database, forged eligibility fields and cross-origin requests are rejected, and `tree-continue` still returns 503 / `authorized:false`.
+- Full holder-facing UI acceptance remains unverified. The cloud browser refused the isolated local HTML test file because its URL policy permits HTTP/HTTPS only; no alternate route was used to open that file. The local test fixture was not deployed or used to bypass the gateway.
+- Remaining release gates: real NFTree-holder and Slush acceptance, confirmation of the proposed recipient, a reviewed Game Over eligibility policy, wallet execution and the authenticated Phaser continuation bridge. No schema migration or production change was made.
 
 ## Migration and safety notes
 
