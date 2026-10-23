@@ -45,10 +45,23 @@ Player flow: Connect Wallet → Verify NFTree & Play → approve a personal-mess
 
 - Test the preview with a real NFTree-holding wallet. Slush's reported security warning remains unresolved and must not be bypassed.
 - This preview recognizes directly wallet-owned NFTrees only. Kiosk and custody ownership remain unsupported and are disclosed on the gateway.
-- Paid continuation, trusted Game Over handling, new-run lifecycle and frontend payment checkout are the next milestone. No live 20,000 TREE payments are enabled.
+- New-run lifecycle was completed and verified on October 23 (see below). Paid continuation, trusted Game Over handling and frontend payment checkout remain unfinished. No live 20,000 TREE payments are enabled.
 - Production remains at published deploy `6a9d79efef404400084bec93`; no production source, schema or website was changed.
 
 The migration is now in the automatic Netlify migration directory **on this development branch only**. A future merge and production publish would apply it to production; those actions are not authorized by the development-only task.
+
+## New-run lifecycle verification (October 23, 2026)
+
+- Code commit: `46317aedf9f03cbadb0a26e26d13324e7e690aaa`, exclusively on `feature/tree-paid-continue`.
+- Start New Run and Return to Title obtain a fresh server-issued run and bearer credential. Direct NFTree ownership is rechecked before rotating sessions atomically. The original sign-in expiry is preserved.
+- Pending inputs are deduplicated; unsuccessful restarts stay at the debrief with retry. Expired credentials or lost ownership return to the gateway. No bearer credential is passed into Phaser.
+- The `tree-run` function accepts only the authenticated credential and current run correlation. Browser score, wave, lives and Game Over claims cannot grant continuation eligibility. No database migration was added or changed.
+- All 182 local tests and the build pass. GitHub Actions continuation checks `40004854831` / `40004850454` and PostgreSQL validation `40004854836` / `40004850466` passed. The new PostgreSQL integration step covers concurrent rotation, hashed storage, original expiry, NFT refusal, rollback on insert failure and logout during the ownership query. Positive holdings are fixtures.
+- Netlify PR deploy `6adba978fee7ff840a3b401f` is ready, contains `tree-run`, and targets database branch `feature/tree-paid-continue`.
+- Live checks on both branch and PR preview URLs reject missing and unknown credentials, forged Game Over fields and cross-origin requests. Existing signed-wallet smoke tests also pass on both URLs, including actual cryptographic signatures, live mainnet non-holder denial and replay rejection. The payment endpoint still returns 503 with `authorized:false`.
+- The branch database status remains HTTP 200 / `ready:true`, with all four tables and all eight constraint checks passing.
+- The gateway page loads after deployment. A real holder's full play/restart flow and the Slush warning remain unverified. Paid checkout remains unfinished and disabled; browser-calculated Game Over is not independently verified by the server.
+- Production `main` remains at `f04261491ae78dc21cb87842bc3a0b1da81cefc6`, published deploy `6a9d79efef404400084bec93`.
 
 ## Migration and safety notes
 

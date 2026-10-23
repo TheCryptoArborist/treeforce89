@@ -13,7 +13,7 @@ test('restart derives identity only from bearer credentials and refuses all game
   const calls=[];
   const handler=createGameRunHttpHandler({build,getService:()=>({restart:async input=>{calls.push(input);return {runId:'new'};}})});
   for(const body of [{runId,wallet:'0x1234'},{runId,gameOver:true},{runId,lives:0},{runId,wave:1},
-    {runId,score:100},{runId,continuePending:true},{runId:'invalid'},['array'],{runId:'x'.repeat(300)}])
+    {runId,score:100},{runId,continuePending:true},{runId:'invalid'},{runId:[runId]},['array'],{runId:'x'.repeat(300)}])
     assert.equal((await handler(request(body),runtime)).status,400);
   assert.equal(calls.length,0);
   const result=await handler(request(),runtime);

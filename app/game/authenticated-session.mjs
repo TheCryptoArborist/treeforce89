@@ -7,7 +7,7 @@ import { normalizeSuiAddress } from "./tree-payment.mjs";
  * Store only its SHA-256 hash; never expose raw tokens in logs or database.
  *
  * This resolver is not a wallet login implementation and does not issue tokens.
- * It is intentionally not connected to the public Netlify endpoint.
+ * The development run endpoint uses this only after its deploy/origin guard.
  */
 export function createAuthenticatedSessionResolver(pool) {
   if (!pool || typeof pool.query !== "function") {

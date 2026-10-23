@@ -26,7 +26,7 @@ export function createGameRunHttpHandler({build,getService}) {
       const bytes=new Uint8Array(size);let offset=0;
       for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
       const body=JSON.parse(new TextDecoder().decode(bytes));
-      if(!body || Array.isArray(body) || Object.keys(body).length!==1 ||
+      if(!body || Array.isArray(body) || Object.keys(body).length!==1 || typeof body.runId!=='string' ||
         !/^grove-[a-f0-9]{32}$/.test(body.runId))throw Error('Invalid run');
       runId=body.runId;
     } catch {return reply({error:'Only the current run identifier is permitted.'},400);}
