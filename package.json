@@ -8,13 +8,18 @@
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/write-tree-deploy-context.mjs && vite build",
     "preview": "vite preview",
     "test": "npm run build",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
+    "test:payments": "node scripts/write-tree-deploy-context.mjs && node --test tests/*.test.mjs"
   },
   "dependencies": {
+    "@mysten/dapp-kit-react": "2.1.41",
+    "@mysten/sui": "2.37.0",
+    "@mysten/wallet-standard": "0.21.35",
+    "@netlify/database": "2.0.1",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
     "phaser": "^3.90.0",

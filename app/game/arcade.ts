@@ -1,4 +1,5 @@
 import * as Phaser from "phaser";
+import {createRunRestartController} from "./run-restart.mjs";
 import {E} from "./events";import {enemyConfig,GAME_VERSION,H,palette,stages,tuning,W,waves,weaponLevels} from "./config";import {SeededRng} from "./rng";
 
 const {css:pc,hex:ph}=palette;
@@ -13,7 +14,7 @@ type Kind="bat"|"borer"|"spore"|"small"|"boss";
 interface Enemy extends Phaser.Physics.Arcade.Sprite{kind:Kind;hp:number;homeX:number;homeY:number;phase:number;diving:boolean;settled:boolean;returning:boolean;formationIndex:number;lastFire:number}
 interface RunState{runId:string;seed:number;score:number;wave:number;kills:number;perfect:number;maxStage:number;shotsFired:number;shotsHit:number;start:number;mode:string}
 
-class BootScene extends Phaser.Scene{constructor(){super("boot")}preload(){this.load.image("hero-photo","/assets/hero/tree-hero-canonical.jpg");this.load.image("forest-back","/assets/backgrounds/first-canopy-backdrop.png");this.load.image("forest-mid","/assets/backgrounds/first-canopy-midground.png");this.load.image("forest-front","/assets/backgrounds/first-canopy-foreground.png");this.load.image("victoryTurbo","/assets/powerups/dex-reward-token.jpeg");this.load.image("boomLogo","/assets/powerups/boom-token.png");this.load.spritesheet("playerSheet","/assets/arborwing/tree-hero-arborwing-stages-v2.png",{frameWidth:128,frameHeight:160})}create(){makeTextures(this);this.scene.start("title")}}
+class BootScene extends Phaser.Scene{constructor(){super("boot")}preload(){this.load.image("hero-photo","/assets/hero/tree-hero-canonical.jpg");this.load.image("forest-back","/assets/backgrounds/first-canopy-backdrop.png");this.load.image("forest-mid","/assets/backgrounds/first-canopy-midground.png");this.load.image("forest-front","/assets/backgrounds/first-canopy-foreground.png");this.load.image("victoryTurbo","/assets/powerups/dex-reward-token.jpeg");this.load.image("boomLogo","/assets/powerups/boom-token.png");this.load.spritesheet("playerSheet","/assets/arborwing/tree-hero-arborwing-stages-v2.png",{frameWidth:128,frameHeight:160})}create(){makeTextures(this);this.scene.start(this.game.registry.get("initialScene")||"title")}}
 
 class TitleScene extends Phaser.Scene{
  constructor(){super("title")}
@@ -38,11 +39,13 @@ class GameScene extends Phaser.Scene{
  player!:Phaser.Physics.Arcade.Sprite;shots!:Phaser.Physics.Arcade.Group;enemies!:Phaser.Physics.Arcade.Group;bullets!:Phaser.Physics.Arcade.Group;branches!:Phaser.Physics.Arcade.Group;pickups!:Phaser.Physics.Arcade.Group;
  stage=0;weaponLevel=0;growth=0;pruneCharge=0;lives=3;chain=0;chainUntil=0;lastShot=0;lastAutoShot=0;turboUntil=0;invulnUntil=0;pruneKills=0;waveSpawned=0;waveStart=0;waveKillsStart=0;waveClearing=false;waveDamage=false;nextDiveAt=0;nextEnemyFireAt=0;captureUsed=false;capturedStage=0;grafted=false;paused=false;dragging=false;dragLast=0;dragPointerId=-1;firePointerId=-1;fireHeld=false;controllerFireHeld=false;gamepadFireWasDown=false;gamepadSelectWasDown=false;gamepadStartWasDown=false;gamepadTaught=false;autoFire=false;invincible=false;hitboxes=false;debug=false;coords=false;showFps=false;pruneTaught=false;pruneReadyAnnounced=false;seedTaught=false;coreTaught=false;turboTaught=false;boomTaught=false;killsSinceSeed=0;killsSinceCore=0;killsSinceTurbo=0;killsSinceBoom=0;volley=0;attackSerial=0;rushTargets=0;rushDestroyed=0;rushShotsFired=0;rushShotsHit=0;wingSide=1;run!:RunState;rng!:SeededRng;snareEnemy?:Enemy;snareBeam?:Phaser.GameObjects.Rectangle;capturedWing?:Phaser.Physics.Arcade.Sprite;rescuedWing?:Phaser.GameObjects.Sprite;bossDamageFx:Phaser.GameObjects.Rectangle[]=[];clearedRows=new Set<number>();escortKills=new Map<number,number>();escortTargets=new Map<number,number>();
  scoreText!:Phaser.GameObjects.Text;waveText!:Phaser.GameObjects.Text;badgeText!:Phaser.GameObjects.Text;stageText!:Phaser.GameObjects.Text;powerText!:Phaser.GameObjects.Text;lessonText!:Phaser.GameObjects.Text;turboText!:Phaser.GameObjects.Text;pickupText!:Phaser.GameObjects.Text;sfxText!:Phaser.GameObjects.Text;sfxButtonBg!:Phaser.GameObjects.Rectangle;chainText!:Phaser.GameObjects.Text;growthText!:Phaser.GameObjects.Text;pruneChargeText!:Phaser.GameObjects.Text;livesText!:Phaser.GameObjects.Text;notice!:Phaser.GameObjects.Text;autoText!:Phaser.GameObjects.Text;autoButtonBg!:Phaser.GameObjects.Rectangle;fireText!:Phaser.GameObjects.Text;fireButton!:Phaser.GameObjects.Container;fireButtonBg!:Phaser.GameObjects.Rectangle;pruneText!:Phaser.GameObjects.Text;pruneButton!:Phaser.GameObjects.Container;pruneButtonBg!:Phaser.GameObjects.Rectangle;debugPanel!:Phaser.GameObjects.Container;fpsText!:Phaser.GameObjects.Text;coordText!:Phaser.GameObjects.Text;bossHpText!:Phaser.GameObjects.Text;bossHpFill!:Phaser.GameObjects.Rectangle;
+ private resumeRun?:RunState;
  constructor(){super("game")}
+ init(data?:{resume?:RunState}){this.resumeRun=data?.resume}
  create(){
-  forest(this);this.makeGroups();const seed=(Date.now()>>>0);this.rng=new SeededRng(seed);this.run={runId:`grove-${seed.toString(16)}`,seed,score:0,wave:0,kills:0,perfect:0,maxStage:0,shotsFired:0,shotsHit:0,start:Date.now(),mode:"ARCADE"};this.events.emit(E.RUN_STARTED,this.run);
+  forest(this);this.makeGroups();const seed=this.resumeRun?.seed??(Date.now()>>>0);this.rng=new SeededRng(seed);this.run=this.resumeRun?{...this.resumeRun}:{runId:(this.game.registry.get("serverRunId") as string|undefined)??`grove-${seed.toString(16)}`,seed,score:0,wave:0,kills:0,perfect:0,maxStage:0,shotsFired:0,shotsHit:0,start:Date.now(),mode:"ARCADE"};this.lives=3;this.events.emit(E.RUN_STARTED,this.run);
   this.player=this.physics.add.sprite(240,570,"playerSheet",0).setDepth(4).setScale(stages[0].scale).setCollideWorldBounds(true);this.player.body!.setSize(18,26);
-  this.makeHud();this.bindInput();this.bindCollisions();const requestedWave=Number(new URLSearchParams(window.location.search).get("wave"));const startAt=Number.isInteger(requestedWave)&&requestedWave>=1&&requestedWave<=waves.length?requestedWave-1:0;this.startWave(startAt);if(startAt===0){this.time.delayedCall(900,()=>this.setLesson("1/4  MOVE LEFT + RIGHT",2400));this.time.delayedCall(3900,()=>this.setLesson("2/4  FIRE: LEFT CLICK, Z/X, OR CONTROLLER A/B",2600));this.time.delayedCall(6900,()=>this.setLesson("3/4  MISSED SHOTS MUST LEAVE THE SCREEN",3000))}else this.setLesson(`TEST ENTRY // WAVE ${startAt+1}`,2200);
+  this.makeHud();this.bindInput();this.bindCollisions();const requestedWave=Number(new URLSearchParams(window.location.search).get("wave"));const startAt=this.resumeRun?Math.max(0,Math.min(this.resumeRun.wave,waves.length-1)):Number.isInteger(requestedWave)&&requestedWave>=1&&requestedWave<=waves.length?requestedWave-1:0;this.startWave(startAt);if(this.resumeRun){this.setLesson("CANOPY CONTINUED // 3 LIVES RESTORED",2400);this.resumeRun=undefined}else if(startAt===0){this.time.delayedCall(900,()=>this.setLesson("1/4  MOVE LEFT + RIGHT",2400));this.time.delayedCall(3900,()=>this.setLesson("2/4  FIRE: LEFT CLICK, Z/X, OR CONTROLLER A/B",2600));this.time.delayedCall(6900,()=>this.setLesson("3/4  MISSED SHOTS MUST LEAVE THE SCREEN",3000))}else this.setLesson(`TEST ENTRY // WAVE ${startAt+1}`,2200);
   this.physics.world.on("worldbounds",(body:Phaser.Physics.Arcade.Body)=>{const o=body.gameObject as Phaser.Physics.Arcade.Sprite;if(o.active&&(o.getData("playerShot")||o.getData("hostile")||o.texture.key==="branch"))o.destroy()});
   this.game.events.on(Phaser.Core.Events.BLUR,this.autoPause,this);this.game.events.on(Phaser.Core.Events.HIDDEN,this.autoPause,this);
  }
@@ -186,14 +189,30 @@ class GameOverScene extends Phaser.Scene{
   this.add.rectangle(240,376,360,188,ph.panel,.94).setStrokeStyle(1,ph.gold,.85);
   this.add.text(240,289,"CANOPY DEBRIEF",font(11,pc.gold)).setOrigin(.5);
   this.add.text(240,312,`SCORE              ${data.run.score.toLocaleString()}\nLAST SECTOR        ${String(data.run.wave+1).padStart(2,"0")}  ${wave}\nBLIGHT CLEARED     ${data.run.kills}\nSHOTS / HITS       ${data.run.shotsFired} / ${data.run.shotsHit}\nACCURACY           ${accuracy}%\nPERFECT SHIELDS    ${data.run.perfect}\nMAX GROWTH         ${stages[data.run.maxStage].name}`,font(11,pc.text)).setOrigin(.5,0).setAlign("left").setLineSpacing(5);
-  const replay=this.add.rectangle(240,503,266,48,ph.bgSoft).setStrokeStyle(3,ph.green).setInteractive();
-  const title=this.add.rectangle(240,563,266,40,ph.panel).setStrokeStyle(2,ph.cyan).setInteractive();
-  this.add.text(240,503,data.cleared?"RUN THE CANOPY AGAIN":"REDEPLOY ARBORWING",font(13,pc.gold)).setOrigin(.5);
-  this.add.text(240,563,"RETURN TO TITLE",font(10,pc.text)).setOrigin(.5);
-  replay.on("pointerdown",()=>this.scene.start("game"));
-  title.on("pointerdown",()=>this.scene.start("title"));
-  this.input.keyboard?.once("keydown-SPACE",()=>this.scene.start("game"));
-  this.input.keyboard?.once("keydown-ENTER",()=>this.scene.start("game"));
+  // Checkout review is read-only; it cannot request a signature or restore lives.
+  if(!data.cleared){
+   const review=this.add.rectangle(240,488,330,48,ph.panel,.98).setStrokeStyle(2,ph.gold,.75);
+   this.add.text(240,480,"CONTINUE  //  20,000 TREE",font(13,pc.gold)).setOrigin(.5);
+   this.add.text(240,497,"VIEW DETAILS // PAYMENTS DISABLED",font(9,pc.muted)).setOrigin(.5);
+   const requestCheckout=this.game.registry.get("requestCheckout");
+   if(this.game.registry.get("serverRunId") && typeof requestCheckout==='function')review.setInteractive().on("pointerdown",()=>requestCheckout());
+  }
+  const replay=this.add.rectangle(240,550,266,44,ph.bgSoft).setStrokeStyle(3,ph.green).setInteractive();
+  const title=this.add.rectangle(240,603,266,38,ph.panel).setStrokeStyle(2,ph.cyan).setInteractive();
+  this.add.text(240,550,data.cleared?"RUN THE CANOPY AGAIN":"START NEW RUN",font(13,pc.gold)).setOrigin(.5);
+  this.add.text(240,603,"RETURN TO TITLE",font(10,pc.text)).setOrigin(.5);
+  const status=this.add.text(240,674,"",font(10,pc.gold)).setOrigin(.5).setAlign("center").setWordWrapWidth(380);
+  const restart=createRunRestartController({
+   managed:!!this.game.registry.get("serverRunId"),
+   requestNewRun:this.game.registry.get("requestNewRun"),
+   startOffline:(destination:"game"|"title")=>this.scene.start(destination),
+   onPending:(pending:boolean)=>{if(!this.sys?.isActive())return;if(pending){replay.disableInteractive();title.disableInteractive();status.setText("CHECKING NFTREE // PREPARING NEW RUN…")}else{replay.setInteractive();title.setInteractive()}},
+   onError:(message:string)=>{if(this.sys?.isActive())status.setText(message)},
+  });
+  const play=()=>{void restart("game")},home=()=>{void restart("title")};
+  replay.on("pointerdown",play);title.on("pointerdown",home);
+  this.input.keyboard?.on("keydown-SPACE",play);this.input.keyboard?.on("keydown-ENTER",play);
+  this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{this.input.keyboard?.off("keydown-SPACE",play);this.input.keyboard?.off("keydown-ENTER",play)});
   this.add.text(240,644,`RUN ${data.run.runId}  •  SEED ${data.run.seed}  •  v${GAME_VERSION}`,font(8,pc.muted)).setOrigin(.5).setAlign("center");
  }
 }
@@ -231,4 +250,12 @@ function forest(s:Phaser.Scene){
 }
 function leafBurst(s:Phaser.Scene,x:number,y:number,count=10){for(let i=0;i<count;i++){const p=s.add.rectangle(x,y,3+i%3,6,i%3===0?ph.gold:ph.green).setDepth(10).setAngle(i*37);s.tweens.add({targets:p,x:x+Phaser.Math.Between(-65,65),y:y+Phaser.Math.Between(-70,55),angle:i*90,alpha:0,duration:Phaser.Math.Between(280,620),onComplete:()=>p.destroy()})}}
 function tone(_s:Phaser.Scene,f:number,d=.05,v=.04){if(sfxMuted)return;try{const c=ensureAudio();const o=c.createOscillator(),gain=c.createGain();o.type=f<170?"sawtooth":f>600?"triangle":"square";o.frequency.setValueAtTime(f,c.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(45,f*.72),c.currentTime+d);gain.gain.setValueAtTime(v,c.currentTime);gain.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);o.connect(gain).connect(c.destination);o.start();o.stop(c.currentTime+d)}catch{}}
-export function createCanopyGame(parent:HTMLElement){return new Phaser.Game({type:Phaser.AUTO,width:W,height:H,parent,backgroundColor:pc.bg,pixelArt:true,roundPixels:true,physics:{default:"arcade",arcade:{gravity:{x:0,y:0},debug:false}},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:[BootScene,TitleScene,GameScene,GameOverScene],fps:{target:60,forceSetTimeOut:false},input:{activePointers:3}})}
+export function createCanopyGame(parent:HTMLElement,options?:{serverRunId?:string;initialScene?:"game"|"title";requestNewRun?:(destination:"game"|"title")=>Promise<void>;requestCheckout?:()=>void}){
+ if(options?.serverRunId && !/^grove-[a-f0-9]{32}$/.test(options.serverRunId))throw new Error("Invalid server run identifier");
+ return new Phaser.Game({type:Phaser.AUTO,width:W,height:H,parent,backgroundColor:pc.bg,pixelArt:true,roundPixels:true,physics:{default:"arcade",arcade:{gravity:{x:0,y:0},debug:false}},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:[BootScene,TitleScene,GameScene,GameOverScene],fps:{target:60,forceSetTimeOut:false},input:{activePointers:3},callbacks:{preBoot:game=>{
+  if(options?.serverRunId)game.registry.set("serverRunId",options.serverRunId);
+  game.registry.set("initialScene",options?.initialScene==='game'?'game':'title');
+  if(options?.requestNewRun)game.registry.set("requestNewRun",options.requestNewRun);
+  if(options?.requestCheckout)game.registry.set("requestCheckout",options.requestCheckout);
+ }}});
+}

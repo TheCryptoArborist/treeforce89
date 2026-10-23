@@ -1,0 +1,128 @@
+name: TREE database migration validation
+
+on:
+  push:
+    branches:
+      - feature/tree-paid-continue
+    paths:
+      - 'db/staged-migrations/**'
+      - 'netlify/database/migrations/**'
+      - 'tests/sql/**'
+      - 'tests/integration/**'
+      - 'app/game/preview-database-status.mjs'
+      - 'app/game/wallet-gateway*.mjs'
+      - 'app/game/game-run*.mjs'
+      - 'app/game/authenticated-session.mjs'
+      - 'app/game/continuation*.mjs'
+      - 'app/game/postgres-redemption.mjs'
+      - 'app/game/mainnet-transaction-reader.mjs'
+      - 'app/game/nftree-access.mjs'
+      - 'tests/staged-database-schema.test.mjs'
+      - '.github/workflows/tree-database-validation.yml'
+  pull_request:
+    paths:
+      - 'db/staged-migrations/**'
+      - 'netlify/database/migrations/**'
+      - 'tests/integration/**'
+      - 'app/game/preview-database-status.mjs'
+      - 'app/game/wallet-gateway*.mjs'
+      - 'app/game/game-run*.mjs'
+      - 'app/game/authenticated-session.mjs'
+      - 'app/game/continuation*.mjs'
+      - 'app/game/postgres-redemption.mjs'
+      - 'app/game/mainnet-transaction-reader.mjs'
+      - 'app/game/nftree-access.mjs'
+      - '.github/workflows/tree-database-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tree_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: tree_auth_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tree_test -d tree_auth_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: tree_test
+      PGPASSWORD: local_test_only
+      PGDATABASE: tree_auth_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Confirm promoted migration matches validated staged SQL
+        run: cmp db/staged-migrations/20261016030500_tree_authentication.sql netlify/database/migrations/20261016030500_tree_authentication.sql
+      - name: Apply promoted migration in disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f netlify/database/migrations/20261016030500_tree_authentication.sql
+      - name: Verify tables and uniqueness constraints
+        run: |
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF (SELECT count(*) FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name IN ('tree_wallet_challenges','tree_wallet_logins','tree_game_sessions','tree_continue_redemptions')) <> 4
+            THEN RAISE EXCEPTION 'Missing TREE authentication tables'; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                WHERE conrelid='tree_continue_redemptions'::regclass
+                  AND contype='u')
+            THEN RAISE EXCEPTION 'Missing continuation uniqueness constraint'; END IF;
+          END $$;
+          SQL
+      - name: Validate authentication and redemption against PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/tree-auth-integration.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install locked dependencies for runtime database verification
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify runtime schema inspector against real PostgreSQL
+        run: node tests/integration/preview-database-status.mjs
+      - name: Verify complete signed-wallet gateway against PostgreSQL
+        run: node tests/integration/wallet-gateway.mjs
+      - name: Verify authenticated new-run rotation against PostgreSQL
+        run: node tests/integration/game-run.mjs
+      - name: Verify staged continuation receipts and atomic redemption
+        run: node tests/integration/continuation.mjs
+      - name: Verify digest cannot be redeemed twice
+        run: |
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO tree_game_sessions(session_id,wallet,run_id)
+            VALUES('session-a','0x1234','grove-a');
+          INSERT INTO tree_continue_redemptions(digest,session_id,continuation_number,wallet,run_id)
+            VALUES('digest-a','session-a',0,'0x1234','grove-a');
+          DO $$
+          BEGIN
+            BEGIN
+              INSERT INTO tree_continue_redemptions(digest,session_id,continuation_number,wallet,run_id)
+                VALUES('digest-a','session-a',1,'0x1234','grove-a');
+              RAISE EXCEPTION 'Duplicate digest unexpectedly accepted';
+            EXCEPTION WHEN unique_violation THEN NULL;
+            END;
+            BEGIN
+              INSERT INTO tree_continue_redemptions(digest,session_id,continuation_number,wallet,run_id)
+                VALUES('digest-b','session-a',0,'0x1234','grove-a');
+              RAISE EXCEPTION 'Duplicate session continuation unexpectedly accepted';
+            EXCEPTION WHEN unique_violation THEN NULL;
+            END;
+          END $$;
+          SQL

@@ -1,0 +1,42 @@
+name: TREE continuation checks
+
+on:
+  push:
+    branches:
+      - feature/tree-paid-continue
+  pull_request:
+    paths:
+      - 'app/game/**'
+      - 'netlify/functions/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/tree-continue-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  payment-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run payment regression tests
+        run: npm run test:payments
+      - name: Build game
+        run: npm run build
+      - name: Package tested gateway preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: tree-force-gateway-preview
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
