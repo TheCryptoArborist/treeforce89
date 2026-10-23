@@ -48,3 +48,18 @@ export async function revokeGatewaySession(session,{fetchImpl=fetch,keepalive=fa
   });
   if(!response.ok || (await response.json()).loggedOut!==true)throw Error('Server sign-out could not be confirmed.');
 }
+
+export async function restartGatewayRun(session,{fetchImpl=fetch,signal}={}) {
+  const response=await fetchImpl('/.netlify/functions/tree-run',{
+    method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.sessionToken},
+    body:JSON.stringify({runId:session.runId}),cache:'no-store',signal,
+  });
+  let result;
+  try {result=await response.json();}catch{throw Error('A new run could not be confirmed. Please retry.');}
+  if(!response.ok)throw Object.assign(Error(result.error||'A new run could not be confirmed.'),{code:result.code});
+  if(!/^[a-f0-9]{64}$/.test(result.sessionToken) || result.sessionToken===session.sessionToken ||
+    !/^grove-[a-f0-9]{32}$/.test(result.runId) || result.runId===session.runId ||
+    !Number.isSafeInteger(result.expiresAt) || result.expiresAt<=Date.now() || result.expiresAt>session.expiresAt)
+    throw Error('A valid new run was not returned. Disconnect and verify your NFTree again.');
+  return {...result,wallet:session.wallet};
+}

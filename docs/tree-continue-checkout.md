@@ -1,6 +1,6 @@
 # TREE FORCE '89 — Paid continuation integration
 
-Status: **staged; no payment collection or paid unlock enabled**.
+Status (October 23, 2026): **NFTree sign-in and authenticated new-run rotation are active on the development preview. Paid continuation remains disabled.**
 
 ## Product contract
 
@@ -55,7 +55,7 @@ Canonical site repository: `TheCryptoArborist/nftree_landing`.
 - Wallet integration: `src/wallet-mint.js`, using `@mysten/wallet-standard` and `@mysten/sui` (not the deprecated JSON-RPC dApp Kit).
 - The NFTree wallet supports `sui:mainnet`, Wallet Standard connection and transaction signing.
 - The TREE FORCE branch now includes `app/game/nftree-access.mjs` with a **read-only** direct-ownership check for `0xf6c6d439ea0da2f3e9ba79e4992a7a4c113215fbf54c442ac9020c315f953705::collection::NFT`.
-- Ownership is not yet a game-entry gate. Connect a wallet and verify actual ownership before enabling access restrictions. A browser address by itself is not authenticated wallet identity.
+- The development gateway now requires a verified personal-message signature and a server-side ownership query before it issues a session. A browser address by itself is not authenticated wallet identity.
 - Direct ownership is not equivalent to kiosk or custody holdings. Handle those explicitly rather than rejecting legitimate NFTree owners silently.
 - The 20,000 TREE payment remains exclusively for continuation after all lives are lost, never initial entry.
 
@@ -64,8 +64,9 @@ Canonical site repository: `TheCryptoArborist/nftree_landing`.
 
 The server-only `nftree-session-service.mjs` composes hashed wallet-login lookup,
 mainnet direct NFTree ownership checks, and issuance of a new game session.
-It is **not deployed**, and the React/Phaser game is **not yet wired** to the
-server-issued run ID or session token.
+It is deployed on `feature/tree-paid-continue`. React keeps the bearer session
+in memory and passes only the server-issued run ID and a restart callback to
+Phaser. Production remains unchanged.
 
 A server-issued session alone does **not** prove that a player lost all lives.
 The current Phaser game executes in the browser and can be modified by the
@@ -89,14 +90,47 @@ Before accepting real TREE:
 `CanopyGame` and `createCanopyGame` now accept an optional `serverRunId`
 with the format `grove-<32 lowercase hex characters>`. When provided, a new
 Phaser run uses it. Without it, the existing offline run ID is generated.
-A paid continuation retains the prior run ID.
+A paid continuation retains the prior run ID. The paid resume path remains staged.
 
-**This is only a display/gameplay correlation mechanism, NOT an authenticated
-server session.** The React NFTree Gateway does not yet fetch an authenticated
-server-issued run ID, and the server must never trust a run ID echoed by the
-browser as proof of NFTree ownership, score, lives, or Game Over.
+The development gateway now obtains an authenticated server-issued run ID.
+The ID alone remains only a correlation value: a browser echo does not prove
+wallet identity, NFTree ownership, score, lives or Game Over.
 
-The next step is an authenticated server endpoint for game-session creation,
-followed by an explicitly defined, abuse-resistant game-over reporting policy.
-No real TREE transfer should be enabled before those controls and the Slush
-security review are complete.
+Authenticated session creation is complete. Real TREE transfers remain blocked
+pending the continuation trust policy, paid checkout acceptance testing and
+resolution of the Slush security warning.
+
+
+## Authenticated new-run lifecycle (October 23, 2026)
+
+After a loss or victory, **Start New Run** and **Return to Title** both request
+`POST /.netlify/functions/tree-run` with the current bearer credential and run
+ID. The endpoint is restricted to this development branch and site, same-origin
+requests, exact input fields and an IP rate limit. It accepts no wallet, score,
+wave, lives, Game Over or continuation claims.
+
+The server resolves the wallet from the hashed credential, rechecks direct
+NFTree ownership on mainnet, then locks the old session. In one PostgreSQL
+transaction it expires the old credential and creates a fresh session, token
+and run ID at wave zero with continuation number zero. Authentication expiry
+is retained rather than extended. Concurrent restarts can succeed only once;
+an insert failure rolls back the old session's expiry. A logout during the
+ownership lookup is rechecked under the lock.
+
+The game stays at its debrief while the request is pending. Duplicate replay,
+title and keyboard inputs share one request. Failure offers retry; an expired
+session or lost NFTree returns to verification. The new Phaser instance starts
+at the requested title or gameplay scene. Bearer credentials never enter Phaser,
+URLs or persistent browser storage.
+
+This endpoint **abandons** the previous run. It does not resume that run, restore
+its score, collect tokens, create a redemption, or set `game_over` or
+`continue_pending` to true. Browser-calculated Game Over remains informational.
+The 20,000 TREE offer appears only after a loss and explicitly says payments
+are disabled. The public payment endpoint continues returning 503.
+
+Automated coverage includes UI input coordination and retry, exact HTTP
+contracts, production denial, credential expiry, mainnet ownership failure,
+concurrent rotation, database rollback and logout races. PostgreSQL tests run
+in disposable CI storage; positive NFT holdings are fixtures. Real holder and
+Slush acceptance remain separate from these automated checks.

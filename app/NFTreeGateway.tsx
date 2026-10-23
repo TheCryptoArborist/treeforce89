@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {useCurrentAccount,useDAppKit,useWalletConnection} from '@mysten/dapp-kit-react';
 import {ConnectButton} from '@mysten/dapp-kit-react/ui';
-import {authenticateGateway,revokeGatewaySession,isGatewaySessionCurrent} from './game/gateway-client.mjs';
+import {authenticateGateway,revokeGatewaySession,isGatewaySessionCurrent,restartGatewayRun} from './game/gateway-client.mjs';
 import CanopyGame from './CanopyGame';
 
 type Session={wallet:string;sessionToken:string;runId:string;expiresAt:number};
@@ -18,6 +18,8 @@ export default function NFTreeGateway() {
   const [pending,setPending]=useState(false);
   const [stage,setStage]=useState('');
   const [error,setError]=useState('');
+  const [initialScene,setInitialScene]=useState<'game'|'title'>('title');
+  const restarting=useRef(false);
 
   useEffect(()=>{
     // Account changes or disconnect immediately unmount the game. In-flight
@@ -60,7 +62,7 @@ export default function NFTreeGateway() {
       if(version!==epoch.current || kit.stores.$connection.get().account?.address!==account.address){
         void revokeGatewaySession(verified).catch(()=>{});return;
       }
-      sessionRef.current=verified;setSession(verified);
+      setInitialScene('title');sessionRef.current=verified;setSession(verified);
     } catch(e) {
       if(version===epoch.current){setSession(null);setError(e instanceof Error?e.message:'Wallet sign-in failed. Please retry.');}
     } finally {
@@ -74,10 +76,32 @@ export default function NFTreeGateway() {
     catch {setError('Game closed. Server sign-out could not be confirmed; the session will expire automatically.');}
     finally {await kit.disconnectWallet().catch(()=>{});}
   };
+  const restart=async(destination:'game'|'title')=>{
+    const previous=sessionRef.current;
+    if(!previous || !account || restarting.current)throw Error('A new run is already pending.');
+    restarting.current=true;
+    const version=++epoch.current;
+    const controller=new AbortController();requestRef.current=controller;
+    try {
+      const next=await restartGatewayRun(previous,{signal:controller.signal});
+      if(version!==epoch.current || sessionRef.current!==previous ||
+        kit.stores.$connection.get().account?.address!==account.address){
+        void revokeGatewaySession(next).catch(()=>{});return;
+      }
+      setInitialScene(destination);sessionRef.current=next;setSession(next);
+    } catch(e) {
+      if(version===epoch.current && ['SESSION_REQUIRED','RUN_CHANGED','NFTREE_REQUIRED'].includes((e as {code?:string})?.code||'')){
+        sessionRef.current=null;setSession(null);
+        setError(e instanceof Error?e.message:'Verify your NFTree again.');
+        void revokeGatewaySession(previous).catch(()=>{});
+      }
+      throw e;
+    } finally {restarting.current=false;}
+  };
   if(session && isGatewaySessionCurrent(session,account?.address)) {
     return <div className="nftree-game-shell">
       <div className="nftree-wallet-bar"><span>NFTree verified · {session.wallet.slice(0,6)}…{session.wallet.slice(-4)}</span><button type="button" onClick={disconnect}>Disconnect</button></div>
-      <CanopyGame key={session.runId} serverRunId={session.runId} />
+      <CanopyGame key={session.runId} serverRunId={session.runId} initialScene={initialScene} onNewRunRequested={restart} />
     </div>;
   }
   return <div className="nftree-gateway" aria-label="NFTree Gateway">

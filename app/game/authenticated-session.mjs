@@ -16,7 +16,7 @@ export function createAuthenticatedSessionResolver(pool) {
   return async function resolveSession(authContext) {
     const token = authContext?.sessionToken;
     if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token)) {
-      throw new Error("Valid authenticated session token required");
+      throw Object.assign(new Error("Valid authenticated session token required"),{code:'SESSION_REQUIRED'});
     }
     const hash = createHash("sha256").update(token, "utf8").digest("hex");
     const result = await pool.query(
@@ -27,7 +27,7 @@ export function createAuthenticatedSessionResolver(pool) {
       [hash],
     );
     if (result.rows?.length !== 1) {
-      throw new Error("Session expired or not authenticated");
+      throw Object.assign(new Error("Session expired or not authenticated"),{code:'SESSION_REQUIRED'});
     }
     const row = result.rows[0];
     if (!Number.isSafeInteger(Number(row.wave)) || Number(row.wave) < 0 ||

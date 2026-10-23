@@ -6,7 +6,7 @@ const mount=readFileSync(new URL("../app/CanopyGame.tsx",import.meta.url),"utf8"
 
 test("React forwards an optional server-issued run identifier to Phaser",()=>{
  assert.match(mount,/serverRunId\?:string/);
- assert.match(mount,/createCanopyGame\(mount\.current,\{serverRunId\}\)/);
+ assert.match(mount,/createCanopyGame\(mount\.current,\{\s*serverRunId,initialScene,/);
 });
 test("Phaser validates server run ID shape before accepting it",()=>{
  assert.match(game,/\^grove-\[a-f0-9\]\{32\}\$/);

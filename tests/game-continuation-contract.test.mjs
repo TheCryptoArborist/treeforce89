@@ -15,7 +15,7 @@ test("resuming restarts the interrupted wave and restores 3 lives",()=>{
 });
 test("Game Over shows price without enabling an unverified checkout",()=>{
  assert.match(arcade,/CONTINUE  \/\/  20,000 TREE/);
- assert.match(arcade,/WALLET CHECKOUT NOT YET ACTIVE/);
+ assert.match(arcade,/PAYMENTS DISABLED IN THIS PREVIEW/);
 });
 test("server endpoint fails closed and cannot authorize payment",()=>{
  assert.match(endpoint,/authorized:false/);
