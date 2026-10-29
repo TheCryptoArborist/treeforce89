@@ -180,3 +180,19 @@ of the recipient, a reviewed Game Over eligibility policy, wallet execution and
 the authenticated authorization bridge into Phaser. `tree-continue` remains
 unchanged and returns 503 / `authorized:false`. No migration was added and no
 production branch, schema or deployment was modified.
+
+
+## Staged continuation resume contract (October 29, 2026)
+
+`app/game/authorized-continue-resume.mjs` now prepares an explicitly whitelisted
+Phaser run snapshot only when a trusted authorization result matches the exact
+run ID, interrupted wave and three restored lives. It preserves the existing
+score, seed and game statistics while rejecting completed runs, malformed
+snapshots, mismatched authorization and injected wallet/payment fields.
+
+**This module is not wired to the game or payment endpoint.** It cannot grant
+payment authorization and is not a proof of Game Over. The backend still needs
+a reviewed eligibility policy, confirmed TREE recipient, real holder/Slush
+acceptance and a verified payment receipt before any real continue can occur.
+The payment button remains disabled and `tree-continue` must keep returning
+503 until those gates are met.
