@@ -1,7 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import CanopyGame from "../app/CanopyGame";
+import NFTreeGateway from "../app/NFTreeGateway";
+import PassiveWalletDiagnostics from "../app/PassiveWalletDiagnostics";
+import ConnectionOnlyDiagnostics from "../app/ConnectionOnlyDiagnostics";
 import "../app/globals.css";
+import {DAppKitProvider} from '@mysten/dapp-kit-react';
+import {dAppKit} from '../app/dapp-kit';
 
 function App() {
   return (
@@ -13,7 +17,7 @@ function App() {
         </header>
         <div className="screen-bezel">
           <div className="game-viewport">
-            <CanopyGame />
+            {new URLSearchParams(window.location.search).get("walletDiagnostics")==="passive" ? <PassiveWalletDiagnostics /> : new URLSearchParams(window.location.search).get("walletDiagnostics")==="connect" ? <ConnectionOnlyDiagnostics /> : <NFTreeGateway />}
             <div className="crt-lines" aria-hidden="true" />
           </div>
         </div>
@@ -29,5 +33,5 @@ function App() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><App /></StrictMode>,
+  <StrictMode><DAppKitProvider dAppKit={dAppKit}><App /></DAppKitProvider></StrictMode>,
 );
