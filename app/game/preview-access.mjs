@@ -13,6 +13,11 @@ export function previewAccessAllowed(build, context, request) {
     context.deploy.context === 'branch-deploy'
       ? 'feature-tree-paid-continue--treeforce89.netlify.app'
       : 'deploy-preview-7--treeforce89.netlify.app',
+    // Reserved for the existing TREE FORCE branch deployment only. Netlify
+    // domain/DNS configuration must independently route this hostname to
+    // this exact site and branch; never attach it to production main.
+    ...(context.deploy.context === 'branch-deploy' && build.context === 'branch-deploy'
+      ? ['preview.tree-token.xyz'] : []),
   ]);
   const url = new URL(request.url);
   return url.protocol === 'https:' && hosts.has(url.host);
