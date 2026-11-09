@@ -61,3 +61,16 @@ button,canvas{touch-action:none}
 .nftree-diagnostic{width:min(100%,350px);padding:10px;border:1px solid #f2c94c;border-radius:6px;background:#081a12;display:flex;flex-direction:column;gap:6px;text-align:left;font-size:11px;color:#fff7df}
 .nftree-diagnostic strong{color:#f2c94c}
 .nftree-diagnostic small{color:#b9c9b6;line-height:1.4}
+
+/* Mobile play mode: fit wallet status and the complete 2:3 cabinet in the viewport.
+   Keep the wallet session visible, without covering the game HUD. */
+@media (max-width: 620px) {
+  .site-shell {min-height:100svh;display:flex;align-items:flex-start;justify-content:center;padding:0;}
+  .game-frame {width:min(100vw,calc((100svh - 86px)*2/3));max-width:100%;min-height:0;margin:0 auto;}
+  .game-viewport {width:100%;height:auto;max-height:none;aspect-ratio:auto;overflow:visible;}
+  .nftree-game-shell {height:auto;min-height:0;display:flex;flex-direction:column;}
+  .nftree-wallet-bar {position:relative;z-index:20;top:auto;left:auto;right:auto;min-height:32px;padding:2px 8px;font-size:10px;flex:0 0 auto;}
+  .nftree-wallet-bar button {min-height:28px;padding:3px 7px;font-size:10px;touch-action:manipulation;}
+  .nftree-game-shell>.phaser-mount {width:100%!important;height:auto!important;aspect-ratio:2/3;flex:0 0 auto;}
+  .nftree-game-shell>.phaser-mount canvas {width:100%!important;height:100%!important;}
+}
