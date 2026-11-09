@@ -1,3 +1,4 @@
+const endpoint = name => '/.netlify/functions/' + (import.meta.env?.BASE_URL === '/play/treeforce89/test/' ? 'treeforce-test-' : 'tree-') + name;
 import {normalizeSuiAddress} from './tree-payment.mjs';
 
 async function post(fetchImpl,path,body,signal) {
@@ -12,7 +13,7 @@ async function post(fetchImpl,path,body,signal) {
 export async function authenticateGateway({wallet,origin,signMessage,fetchImpl=fetch,onStage=()=>{},signal}) {
   const address=normalizeSuiAddress(wallet);
   onStage('Preparing secure sign-in…');
-  const challenge=await post(fetchImpl,'/.netlify/functions/tree-challenge',{wallet:address},signal);
+  const challenge=await post(fetchImpl,endpoint('challenge'),{wallet:address},signal);
   if(!/^[a-f0-9]{64}$/.test(challenge.nonce) || !Number.isSafeInteger(challenge.expiresAt) ||
     challenge.expiresAt<=Date.now() || challenge.expiresAt>Date.now()+6*60_000)
     throw Error('The sign-in message could not be validated. Please retry.');
@@ -27,7 +28,7 @@ export async function authenticateGateway({wallet,origin,signMessage,fetchImpl=f
   const signed=await signMessage(new TextEncoder().encode(challenge.message));
   if(signal?.aborted)throw Error('Sign-in cancelled.');
   onStage('Verifying NFTree access…');
-  const session=await post(fetchImpl,'/.netlify/functions/tree-session',{
+  const session=await post(fetchImpl,endpoint('session'),{
     wallet:address,nonce:challenge.nonce,signature:signed.signature,
   },signal);
   if(!/^[a-f0-9]{64}$/.test(session.sessionToken) || !/^grove-[a-f0-9]{32}$/.test(session.runId) ||
@@ -43,14 +44,14 @@ export function isGatewaySessionCurrent(session,wallet,now=Date.now()) {
 
 export async function revokeGatewaySession(session,{fetchImpl=fetch,keepalive=false}={}) {
   if(!session?.sessionToken)return;
-  const response=await fetchImpl('/.netlify/functions/tree-logout',{
+  const response=await fetchImpl(endpoint('logout'),{
     method:'POST',headers:{Authorization:'Bearer '+session.sessionToken},cache:'no-store',keepalive,
   });
   if(!response.ok || (await response.json()).loggedOut!==true)throw Error('Server sign-out could not be confirmed.');
 }
 
 export async function restartGatewayRun(session,{fetchImpl=fetch,signal}={}) {
-  const response=await fetchImpl('/.netlify/functions/tree-run',{
+  const response=await fetchImpl(endpoint('run'),{
     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.sessionToken},
     body:JSON.stringify({runId:session.runId}),cache:'no-store',signal,
   });

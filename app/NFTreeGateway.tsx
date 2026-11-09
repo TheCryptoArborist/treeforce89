@@ -4,7 +4,9 @@ import {useCurrentAccount,useDAppKit,useWalletConnection} from '@mysten/dapp-kit
 import {ConnectButton} from '@mysten/dapp-kit-react/ui';
 import {authenticateGateway,revokeGatewaySession,isGatewaySessionCurrent,restartGatewayRun} from './game/gateway-client.mjs';
 import CanopyGame from './CanopyGame';
-import ContinuationReview from './ContinuationReview';
+import ProductionContinuationReview from './ContinuationReview';
+import TestContinuationReview from './TestContinuationReview';
+const ContinuationReview=import.meta.env.BASE_URL==='/play/treeforce89/test/'?TestContinuationReview:ProductionContinuationReview;
 
 type Session={wallet:string;sessionToken:string;runId:string;expiresAt:number};
 

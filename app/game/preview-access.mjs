@@ -4,6 +4,13 @@ export const PREVIEW_BRANCH = 'feature/tree-paid-continue';
 // Function artifacts can be reused across deploys of the same Git branch;
 // their build deploy ID is not necessarily the current runtime deploy ID.
 export function previewAccessAllowed(build, context, request) {
+  if(build?.branch==='same-domain-mobile-test') {
+    const url=new URL(request.url);
+    return build.context==='production' && context?.deploy?.context==='production' &&
+      context.site?.id==='aa62f324-b880-47d6-85b8-4ba0700ff5bf' && !!context.deploy.id &&
+      url.protocol==='https:' && (url.hostname==='tree-token.xyz' || url.hostname===context.deploy.id+'--tree-token.netlify.app') &&
+      /^\/\.netlify\/functions\/treeforce-test-(challenge|session|run|logout)$/.test(url.pathname);
+  }
   if (build?.branch !== PREVIEW_BRANCH || !context?.deploy?.id ||
       !['branch-deploy','deploy-preview'].includes(build.context) ||
       !['branch-deploy','deploy-preview'].includes(context.deploy.context) ||

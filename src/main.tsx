@@ -4,6 +4,7 @@ import NFTreeGateway from "../app/NFTreeGateway";
 import PassiveWalletDiagnostics from "../app/PassiveWalletDiagnostics";
 import ConnectionOnlyDiagnostics from "../app/ConnectionOnlyDiagnostics";
 import "../app/globals.css";
+if(import.meta.env.BASE_URL==='/play/treeforce89/test/'){const link=document.createElement('link');link.rel='stylesheet';link.href=import.meta.env.BASE_URL+'mobile-integration.css';document.head.appendChild(link);}
 import {DAppKitProvider} from '@mysten/dapp-kit-react';
 import {dAppKit} from '../app/dapp-kit';
 
@@ -11,7 +12,7 @@ function App() {
   return (
     <main className="site-shell">
       <section className="game-frame" aria-label="TREE FORCE '89: Canopy Command">
-        <header className="game-header">
+        {import.meta.env.BASE_URL==='/play/treeforce89/test/'&&<nav className="game-navigation"><a href="/play/">← Tree Arcade</a><span>Mobile test · payments disabled</span></nav>}<header className="game-header">
           <span className="game-title">TREE FORCE ’89</span>
           <span className="game-subtitle">CANOPY COMMAND</span>
         </header>
