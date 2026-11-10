@@ -1,7 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import CanopyGame from "../app/CanopyGame";
+import NFTreeAccess from "../app/NFTreeAccess";
+import { dAppKit } from "../app/dapp-kit";
+import { DAppKitProvider } from "@mysten/dapp-kit-react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "../app/globals.css";
+
+const queryClient = new QueryClient();
 
 function App() {
   return (
@@ -11,6 +17,7 @@ function App() {
           <span className="game-title">TREE FORCE ’89</span>
           <span className="game-subtitle">CANOPY COMMAND</span>
         </header>
+        <NFTreeAccess />
         <div className="screen-bezel">
           <div className="game-viewport">
             <CanopyGame />
@@ -29,5 +36,5 @@ function App() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><App /></StrictMode>,
+  <StrictMode><QueryClientProvider client={queryClient}><DAppKitProvider dAppKit={dAppKit}><App /></DAppKitProvider></QueryClientProvider></StrictMode>,
 );

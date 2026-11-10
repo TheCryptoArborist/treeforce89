@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { hasNFTree, NFTREE_TYPE } from './nftree-access.mjs';
+const address='0x'+'a'.repeat(64);
+test('eligible NFTree on first page',async()=>assert.equal(await hasNFTree({address,core:{listOwnedObjects:async q=>{assert.equal(q.type,NFTREE_TYPE);return {objects:[{type:NFTREE_TYPE}],cursor:null}}}}),true));
+test('no NFTree',async()=>assert.equal(await hasNFTree({address,core:{listOwnedObjects:async()=>({objects:[],cursor:null})}}),false));
+test('paginates and finds NFTree',async()=>{let n=0;assert.equal(await hasNFTree({address,core:{listOwnedObjects:async()=>++n===1?{objects:[],cursor:'next'}:{objects:[{type:NFTREE_TYPE}],cursor:null}}}),true);assert.equal(n,2)});
+test('rejects malformed response',async()=>await assert.rejects(()=>hasNFTree({address,core:{listOwnedObjects:async()=>({objects:null,cursor:null})}}),/invalid-sui-response/));
+test('rejects cursor loops',async()=>await assert.rejects(()=>hasNFTree({address,core:{listOwnedObjects:async()=>({objects:[],cursor:'repeat'})}}),/invalid-pagination/));
+test('rejects wrong NFT type',async()=>assert.equal(await hasNFTree({address,core:{listOwnedObjects:async()=>({objects:[{type:'0x2::other::NFT'}],cursor:null})}}),false));
+test('rejects invalid wallet',async()=>await assert.rejects(()=>hasNFTree({address:'not-a-wallet',core:{listOwnedObjects:async()=>({objects:[],cursor:null})}}),/invalid-wallet-address/));

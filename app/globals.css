@@ -28,3 +28,11 @@ button,canvas{touch-action:none}
 @media(prefers-reduced-motion:reduce){.crt-lines{display:none}
 *{animation:none!important}
 }
+
+.nftree-access{padding:10px 14px;background:#0b1c13;border-bottom:1px solid #315a3a;font-size:11px}
+.nftree-access-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nftree-access-row strong{font-size:11px;color:var(--gold);letter-spacing:.07em}
+.nftree-access p{margin:7px 0 0;color:var(--green);line-height:1.4}
+.nftree-access a{display:inline-block;margin-top:5px;color:var(--gold)}
+.nftree-access button{cursor:pointer}
+@media(max-width:620px){.nftree-access{position:relative;z-index:8;padding:8px 12px}.game-viewport{max-height:calc(100svh - 84px);height:min(150vw,calc(100svh - 84px))}}
